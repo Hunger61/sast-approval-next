@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { FileIcon, UploadCloudIcon, XIcon } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { formatFileSize } from "@/lib/file"
 import { cn } from "@/lib/utils"
@@ -10,6 +11,8 @@ type FileDropzoneProps = {
   value: File[]
   onChange: (files: File[]) => void
   accept?: string
+  /** 单个文件大小上限，字节 */
+  maxSize?: number
   maxCount?: number
   hint?: string
   title?: string
@@ -17,11 +20,42 @@ type FileDropzoneProps = {
   className?: string
 }
 
+/**
+ * accept 同时支持扩展名（.xlsx）与 MIME（application/vnd...），
+ * 拖拽进来的文件浏览器不会自动过滤，只能在这里挡。
+ */
+function matchesAccept(file: File, accept?: string) {
+  if (accept === undefined || accept.trim() === "") return true
+  const tokens = accept
+    .split(",")
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token !== "")
+  if (tokens.length === 0) return true
+  const name = file.name.toLowerCase()
+  const type = file.type.toLowerCase()
+  return tokens.some((token) => {
+    if (token.startsWith(".")) return name.endsWith(token)
+    if (token.endsWith("/*")) return type.startsWith(token.slice(0, -1))
+    return type !== "" && type === token
+  })
+}
+
+/** 把 accept 转成给用户看的格式说明 */
+function describeAccept(accept?: string) {
+  if (accept === undefined) return "指定格式"
+  const extensions = accept
+    .split(",")
+    .map((token) => token.trim())
+    .filter((token) => token.startsWith("."))
+  return extensions.length > 0 ? extensions.join("、") : "指定格式"
+}
+
 /** 支持点击与拖拽的文件选择区，替代旧版 antd Upload.Dragger */
 export function FileDropzone({
   value,
   onChange,
   accept,
+  maxSize,
   maxCount = 1,
   hint,
   title = "点击或将文件拖入此处上传",
@@ -33,8 +67,26 @@ export function FileDropzone({
 
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return
-    const next = [...value, ...Array.from(files)].slice(-maxCount)
-    onChange(next)
+    const accepted: File[] = []
+    const rejected: string[] = []
+    for (const file of Array.from(files)) {
+      if (!matchesAccept(file, accept)) {
+        rejected.push(`${file.name}：格式不支持，仅接受 ${describeAccept(accept)}`)
+        continue
+      }
+      if (maxSize !== undefined && file.size > maxSize) {
+        rejected.push(
+          `${file.name}：${formatFileSize(file.size)} 超过上限 ${formatFileSize(maxSize)}`
+        )
+        continue
+      }
+      accepted.push(file)
+    }
+    if (rejected.length > 0) {
+      toast.error("以下文件没有被添加", { description: rejected.join("；") })
+    }
+    if (accepted.length === 0) return
+    onChange([...value, ...accepted].slice(-maxCount))
   }
 
   return (

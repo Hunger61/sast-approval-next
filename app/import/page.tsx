@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  CircleCheckIcon,
   DownloadIcon,
   FileDownIcon,
   Loader2Icon,
@@ -26,14 +27,30 @@ import { TableSurface } from "@/components/common/data-list"
 import { EmptyState } from "@/components/common/states"
 import { FileDropzone } from "@/components/common/file-dropzone"
 import { importAccountsFromExcel } from "@/lib/api/judge"
+import { notifyRequestError } from "@/lib/api/errors"
 import { saveBlob } from "@/lib/file"
+import {
+  MAX_IMPORT_ROWS,
+  REQUIRED_COLUMNS,
+  type ImportCheckResult,
+  checkAccountWorkbook,
+  formatIssue,
+} from "@/lib/import-accounts"
 
 type AccountRow = { code: string; password: string }
 
 const FILE_TYPES = [
+  ".xlsx",
+  ".xls",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
 ]
+
+/** 单个表格大小上限 */
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+/** 问题列表最多展示多少条，避免几百行错误撑爆页面 */
+const MAX_VISIBLE_ISSUES = 50
 
 /** 生成账号导入模板 */
 function generateExcelFile() {
@@ -65,11 +82,57 @@ function downloadExcelFile(data: AccountRow[]) {
 export default function ImportPage() {
   const [fileList, setFileList] = React.useState<File[]>([])
   const [uploading, setUploading] = React.useState(false)
+  const [checking, setChecking] = React.useState(false)
+  const [check, setCheck] = React.useState<ImportCheckResult | null>(null)
   const [data, setData] = React.useState<AccountRow[]>([])
+
+  const blocked = check === null || check.issues.length > 0 || check.rows.length === 0
+
+  /** 选完文件立刻在本地解析并逐行校验，不合格就不让提交 */
+  const handleFileChange = async (files: File[]) => {
+    setFileList(files)
+    setCheck(null)
+    if (files.length === 0) return
+    setChecking(true)
+    try {
+      const result = checkAccountWorkbook(await files[0].arrayBuffer())
+      setCheck(result)
+      if (result.issues.length > 0) {
+        toast.error(`表格有 ${result.issues.length} 处问题`, {
+          description: "请按下方提示修改后重新上传",
+        })
+      } else {
+        toast.success(`校验通过，共 ${result.rows.length} 条记录`)
+      }
+    } catch {
+      setCheck({
+        rows: [],
+        issues: [{ message: "文件读取失败，请确认文件没有损坏后重试" }],
+        blankRows: 0,
+        total: 0,
+      })
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const handleUpload = async () => {
     if (fileList.length === 0) {
       toast.error("请先选择要导入的 Excel 文件")
+      return
+    }
+    if (check === null) {
+      toast.error("表格还在校验中，请稍候")
+      return
+    }
+    if (check.issues.length > 0) {
+      toast.error(`表格还有 ${check.issues.length} 处问题未修正`, {
+        description: "修好后重新上传即可导入",
+      })
+      return
+    }
+    if (check.rows.length === 0) {
+      toast.error("表格里没有可导入的数据")
       return
     }
     setUploading(true)
@@ -79,12 +142,14 @@ export default function ImportPage() {
         const rows: AccountRow[] = res.data.data ?? []
         setData(rows)
         downloadExcelFile(rows)
+        setFileList([])
+        setCheck(null)
         toast.success("😸 导入成功", { description: `共生成 ${rows.length} 个账号` })
       } else {
-        toast.error("😭 导入失败", { description: res.data?.errMsg ?? "" })
+        toast.error("😭 导入失败", { description: res.data?.errMsg ?? "后端没有返回具体原因" })
       }
-    } catch {
-      toast.error("😭 导入失败", { description: "请检查网络与文件格式后重试" })
+    } catch (error) {
+      notifyRequestError(error, "😭 导入失败", { description: "请稍后重试" })
     } finally {
       setUploading(false)
     }
@@ -106,21 +171,66 @@ export default function ImportPage() {
       <SectionList className="mt-8">
         <Section
           title="1. 上传账号表格"
-          description="表格需包含「学号」「姓名」「联系方式」三列，可先下载模板后填写。"
+          description={`表格第一行需为「${REQUIRED_COLUMNS.join("」「")}」，单次最多 ${MAX_IMPORT_ROWS} 条，可先下载模板后填写。`}
         >
           <div className="space-y-4">
             <FileDropzone
               value={fileList}
-              onChange={setFileList}
+              onChange={handleFileChange}
               accept={FILE_TYPES.join(",")}
+              maxSize={MAX_FILE_SIZE}
               maxCount={1}
               title="点击或拖拽上传账号表格"
-              hint="仅支持 xlsx、xls 格式的单个文件"
-              disabled={uploading}
+              hint="仅支持 xlsx、xls 格式的单个文件，选完会先在本地校验"
+              disabled={uploading || checking}
             />
+
+            {checking ? (
+              <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                <Loader2Icon className="size-4 animate-spin" />
+                正在校验表格内容…
+              </p>
+            ) : null}
+
+            {check !== null && check.issues.length === 0 ? (
+              <Alert>
+                <CircleCheckIcon />
+                <AlertTitle>校验通过，可以导入</AlertTitle>
+                <AlertDescription>
+                  共 {check.rows.length} 条记录
+                  {check.blankRows > 0 ? `，已跳过 ${check.blankRows} 行空白` : ""}。
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {check !== null && check.issues.length > 0 ? (
+              <Alert variant="destructive">
+                <TriangleAlertIcon />
+                <AlertTitle>表格有 {check.issues.length} 处问题，修正后重新上传</AlertTitle>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p>
+                      共检查 {check.total} 行，其中 {check.rows.length} 行没有问题
+                      {check.blankRows > 0 ? `，另跳过 ${check.blankRows} 行空白` : ""}。
+                    </p>
+                    <ul className="max-h-64 list-disc space-y-1 overflow-y-auto pl-4">
+                      {check.issues.slice(0, MAX_VISIBLE_ISSUES).map((issue, index) => (
+                        <li key={`${issue.row ?? "file"}-${issue.column ?? ""}-${index}`}>
+                          {formatIssue(issue)}
+                        </li>
+                      ))}
+                    </ul>
+                    {check.issues.length > MAX_VISIBLE_ISSUES ? (
+                      <p>还有 {check.issues.length - MAX_VISIBLE_ISSUES} 处问题未列出。</p>
+                    ) : null}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <Button
               onClick={handleUpload}
-              disabled={uploading || fileList.length === 0}
+              disabled={uploading || checking || fileList.length === 0 || blocked}
               className="w-full sm:w-auto"
             >
               {uploading ? (

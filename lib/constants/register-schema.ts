@@ -1,14 +1,15 @@
 import type { SchemaNode } from "@/components/schema-form/types"
+import { PHONE_PATTERN, STUDENT_CODE_PATTERN } from "@/lib/validation"
 
-/** 学号校验规则，与旧版保持一致 */
+/** 学号校验规则，与一键导入共用同一条正则 */
 const CODE_RULE = {
-  pattern: /^([BPQF](1[89]|2[0-6])(0[0-9]|1[0-9])([0-2]\d|3[01])\d{2}|\d{11})|([0-9]{10})$/,
+  pattern: STUDENT_CODE_PATTERN,
   message: "请输入正确的学号",
 }
 
 /** 手机号校验规则 */
 const CONTACT_RULE = {
-  pattern: /^1[3456789]\d{9}$/,
+  pattern: PHONE_PATTERN,
   message: "请输入正确的手机号码",
 }
 
