@@ -1,21 +1,21 @@
 # Tauri Updater Setup
 
-This template ships the `tauri-plugin-updater` plugin **disabled** (`tauri.conf.json` → `plugins.updater.active = false`). Follow these steps to enable in-app updates.
+This project ships the `tauri-plugin-updater` plugin **disabled** (`tauri.conf.json` → `plugins.updater.active = false`). Follow these steps to enable in-app updates.
 
 ## 1. Generate a signing key pair
 
 ```bash
-pnpm tauri signer generate -w ~/.tauri/react-quick-starter.key
+pnpm tauri signer generate -w ~/.tauri/sast-approval.key
 ```
 
 You'll be prompted for a password (optional but recommended). The command writes:
 
-- `~/.tauri/react-quick-starter.key` — **PRIVATE KEY**, never commit
-- `~/.tauri/react-quick-starter.key.pub` — public key
+- `~/.tauri/sast-approval.key` — **PRIVATE KEY**, never commit
+- `~/.tauri/sast-approval.key.pub` — public key
 
 ## 2. Wire the public key into config
 
-Copy the **single-line** content of `~/.tauri/react-quick-starter.key.pub` into
+Copy the **single-line** content of `~/.tauri/sast-approval.key.pub` into
 `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
 
 ## 3. Configure the update endpoint
@@ -27,7 +27,7 @@ GitHub Releases is the simplest host. Set:
   "updater": {
     "active": true,
     "endpoints": [
-      "https://github.com/AstroAir/react-quick-starter/releases/latest/download/latest.json"
+      "https://github.com/NJUPT-SAST/sast-approval-next/releases/latest/download/latest.json"
     ],
     "pubkey": "<paste public key here>"
   }

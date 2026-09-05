@@ -1,10 +1,10 @@
 [package]
-name = "react-quick-starter"
-version = "0.1.0"
-description = "React + Tauri 16/2.9 quick-starter desktop application"
-authors = ["AstroAir <astro_air@126.com>"]
+name = "sast-approval-next"
+version = "3.0.0"
+description = "SAST 通用比赛管理评审系统桌面端"
+authors = ["NJUPT-SAST"]
 license = "MIT"
-repository = "https://github.com/AstroAir/react-quick-starter"
+repository = "https://github.com/NJUPT-SAST/sast-approval-next"
 edition = "2021"
 rust-version = "1.77.2"
 
