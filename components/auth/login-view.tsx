@@ -13,6 +13,7 @@ import {
   UserIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,8 +43,8 @@ function useValidateCode() {
         setImageUrl(url)
         setCaptchaId(String(res.headers["captcha"] ?? ""))
       })
-      .catch(() => {
-        if (!cancelled) toast.error("验证码加载失败，请点击图片重试")
+      .catch((error) => {
+        if (!cancelled) notifyRequestError(error, "验证码加载失败，请点击图片重试")
       })
       .finally(() => {
         if (!cancelled) setLoadedNonce(nonce)

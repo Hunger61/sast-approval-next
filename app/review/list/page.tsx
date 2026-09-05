@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarClockIcon, ClipboardListIcon, GaugeIcon } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -108,8 +109,8 @@ function ReviewListContent() {
         setMeta({ total: result.total ?? 0, pageSize: result.pageSize ?? 10 })
         writeStorage(STORAGE_KEYS.listTotal, String(result.total ?? 0))
       })
-      .catch(() => {
-        if (!cancelled) toast.error("😭 数据加载失败，请稍后重试")
+      .catch((error) => {
+        if (!cancelled) notifyRequestError(error, "😭 数据加载失败，请稍后重试")
       })
       .finally(() => {
         if (!cancelled) markLoaded(requestKey)

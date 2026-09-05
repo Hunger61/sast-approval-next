@@ -17,6 +17,7 @@ import {
   UsersIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -129,8 +130,8 @@ function ManageDetailContent() {
           setPageLabel(payload.comName ?? null)
           setPageState((prev) => ({ ...prev, total: payload.total ?? 0 }))
         })
-        .catch(() => {
-          toast.error("😭 请求失败", { id: "loading" })
+        .catch((error) => {
+          notifyRequestError(error, "😭 请求失败", { id: "loading" })
         })
         .finally(() => markLoaded(key))
     },
@@ -152,7 +153,7 @@ function ManageDetailContent() {
           failure: `😭 ${label}失败`,
         })
       })
-      .catch(() => toast.error("😭 请求失败", { id: "download" }))
+      .catch((error) => notifyRequestError(error, "😭 请求失败", { id: "download" }))
   }
 
   /** 导入评委分配表 */

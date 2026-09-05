@@ -13,6 +13,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -169,8 +170,8 @@ function ReviewDetailContent() {
           if (result.opinion) setOpinion(result.opinion)
         }
       })
-      .catch(() => {
-        if (!cancelled) toast.error("😭 数据加载失败，请稍后重试")
+      .catch((error) => {
+        if (!cancelled) notifyRequestError(error, "😭 数据加载失败，请稍后重试")
       })
       .finally(() => {
         if (!cancelled) markLoaded(requestKey)

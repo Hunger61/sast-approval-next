@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Loader2Icon, SaveIcon, Trash2Icon, XIcon } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,9 +116,9 @@ function EditCompetitionContent() {
           cover: data.cover ?? "",
         })
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return
-        toast.error("😭 获取活动信息失败")
+        notifyRequestError(error, "😭 获取活动信息失败")
         router.back()
       })
       .finally(() => {

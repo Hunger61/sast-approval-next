@@ -1,6 +1,7 @@
 "use client"
 
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { downloadCertificate } from "@/lib/api/public"
 
 /** 触发浏览器下载一个 Blob */
@@ -69,8 +70,9 @@ export async function downloadCertifiedFile(url: string) {
     }
     toast.error("😞 下载发生了错误，请联系管理员", { id: "downloading" })
     return false
-  } catch {
-    toast.error("😞 下载发生了错误，请联系管理员", { id: "downloading" })
+  } catch (error) {
+    // 拿签名直链和取文件都可能因为 DNS 解析失败而挂掉，这里区分网络问题与服务端问题
+    notifyRequestError(error, "😞 下载发生了错误，请联系管理员", { id: "downloading" })
     return false
   }
 }

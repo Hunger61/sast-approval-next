@@ -2,6 +2,12 @@
 
 import axios, { type AxiosResponse } from "axios"
 import { toast } from "sonner"
+import {
+  getNetworkErrorNotice,
+  isNetworkError,
+  markNetworkErrorNotified,
+  wasNetworkErrorNotified,
+} from "@/lib/api/errors"
 import { STORAGE_KEYS, clearStorage, readStorage, writeStorage } from "@/lib/storage"
 
 /**
@@ -35,18 +41,30 @@ function handleUnauthorized() {
   }
 }
 
-apis.interceptors.response.use((res: AxiosResponse) => {
-  const payload = res.data
-  // blob 响应没有 success 字段，跳过
-  if (payload && typeof payload === "object" && "success" in payload && !payload.success) {
-    switch (payload.errCode) {
-      case 1003:
-      case 1005:
-        handleUnauthorized()
-        break
-      default:
-        break
+apis.interceptors.response.use(
+  (res: AxiosResponse) => {
+    const payload = res.data
+    // blob 响应没有 success 字段，跳过
+    if (payload && typeof payload === "object" && "success" in payload && !payload.success) {
+      switch (payload.errCode) {
+        case 1003:
+        case 1005:
+          handleUnauthorized()
+          break
+        default:
+          break
+      }
     }
+    return res
+  },
+  (error: unknown) => {
+    // DNS 解析失败等网络层错误在这里统一提示，页面自己的 catch 不再重复弹窗。
+    // 固定 id 让并发请求同时失败时只出现一条提示。
+    if (isNetworkError(error) && !wasNetworkErrorNotified(error)) {
+      markNetworkErrorNotified(error)
+      const notice = getNetworkErrorNotice(error)
+      toast.error(notice.title, { id: "network", description: notice.description })
+    }
+    return Promise.reject(error)
   }
-  return res
-})
+)

@@ -13,6 +13,7 @@ import {
   TrophyIcon,
 } from "lucide-react"
 import { toast } from "sonner"
+import { notifyRequestError } from "@/lib/api/errors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -137,10 +138,10 @@ export default function ManagePage() {
         setRecords(res.data.data?.records ?? [])
         setPageState((prev) => ({ ...prev, total: res.data.data?.total ?? 0 }))
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
           setRecords([])
-          toast.error("😭 请求失败", { description: "比赛列表加载失败，请稍后重试" })
+          notifyRequestError(error, "😭 请求失败", { description: "比赛列表加载失败，请稍后重试" })
         }
       })
       .finally(() => {
@@ -161,7 +162,7 @@ export default function ManagePage() {
           failure: `😭 ${item.name} 的参赛数据未能成功导出`,
         })
       })
-      .catch(() => toast.error("😭 请求失败", { id: "download" }))
+      .catch((error) => notifyRequestError(error, "😭 请求失败", { id: "download" }))
   }
 
   const empty = (
