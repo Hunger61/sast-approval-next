@@ -1,6 +1,6 @@
 {
-  "name": "react-quick-starter",
-  "version": "0.1.0",
+  "name": "sast-approval-next",
+  "version": "3.0.0",
   "private": true,
   "engines": {
     "node": ">=20.0.0"
@@ -27,7 +27,9 @@
     "@base-ui/react": "^1.4.1",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-slot": "^1.2.5",
+    "@sentry/react": "^10.73.0",
     "@tauri-apps/api": "^2.11.0",
+    "axios": "^1.20.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -48,17 +50,9 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "vaul": "^1.1.2",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,css,md,mdx}": [
-      "prettier --write"
-    ]
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",

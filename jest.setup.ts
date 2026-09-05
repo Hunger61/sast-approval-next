@@ -6,6 +6,40 @@
 import "@testing-library/jest-dom"
 import React from "react"
 
+// --- jsdom 缺失的浏览器 API 兜底（Radix UI 的 Select / Slider 等依赖这些） ---
+if (typeof window !== "undefined") {
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+
+  if (!window.matchMedia) {
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+  }
+
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
+    Element.prototype.setPointerCapture = () => {}
+    Element.prototype.releasePointerCapture = () => {}
+  }
+
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => {}
+  }
+}
+
 type MockNextImageProps = React.ComponentPropsWithoutRef<"img"> & {
   priority?: boolean
   fill?: boolean
