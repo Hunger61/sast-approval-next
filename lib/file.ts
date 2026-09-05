@@ -1,0 +1,84 @@
+"use client"
+
+import { toast } from "sonner"
+import { downloadCertificate } from "@/lib/api/public"
+
+/** 触发浏览器下载一个 Blob */
+export function saveBlob(blob: Blob, filename: string) {
+  const href = window.URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.style.display = "none"
+  anchor.href = href
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  window.URL.revokeObjectURL(href)
+}
+
+/** 从 url 中截取文件名 */
+export function getFileNameFromUrl(url: string) {
+  const urlParts = url.split("/")
+  return decodeURIComponent(urlParts[urlParts.length - 1].split("?")[0])
+}
+
+/**
+ * 从对象存储 url 中还原用户上传时的原始文件名。
+ * 与旧版逻辑一致：去掉 "时间戳-随机数-" 前缀。
+ */
+export function getOriginalFileName(url: string) {
+  const nameList = url.split("/")
+  return decodeURIComponent(
+    nameList[nameList.length - 1].split("-").slice(2).join("-").split("?")[0]
+  )
+}
+
+/**
+ * 后端返回的 blob 接口在出错时会返回 JSON。
+ * 该函数按旧版逻辑判断响应类型并落盘。
+ */
+export function saveBlobResponse(
+  data: Blob,
+  filename: string,
+  messages: { success: string; failure: string }
+) {
+  if (data.type !== "application/json") {
+    saveBlob(new Blob([data]), filename)
+    toast.success(messages.success, { id: "download" })
+    return true
+  }
+  toast.error(messages.failure, { id: "download" })
+  return false
+}
+
+/**
+ * 通过后端换取带签名的直链后下载文件。
+ * 评审、审核、报名详情、项目提交页共用。
+ */
+export async function downloadCertifiedFile(url: string) {
+  toast.loading("正在下载文件…", { id: "downloading" })
+  try {
+    const res = await downloadCertificate(url)
+    const response = res.data
+    if (response?.success) {
+      const file = await fetch(response.data.url)
+      const fileBlob = await file.blob()
+      saveBlob(fileBlob, getFileNameFromUrl(url))
+      toast.success("😁 下载完成！", { id: "downloading" })
+      return true
+    }
+    toast.error("😞 下载发生了错误，请联系管理员", { id: "downloading" })
+    return false
+  } catch {
+    toast.error("😞 下载发生了错误，请联系管理员", { id: "downloading" })
+    return false
+  }
+}
+
+/** 人类可读的文件大小 */
+export function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
