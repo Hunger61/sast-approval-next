@@ -1,6 +1,6 @@
 # CI/CD Pipeline Documentation
 
-This document provides comprehensive information about the CI/CD pipeline configured for this React + Next.js + Tauri project.
+GitHub Actions setup for `sast-approval-next` (Next.js static export + Tauri desktop).
 
 ## Overview
 
@@ -339,7 +339,7 @@ All jobs upload artifacts that are retained for 7-30 days:
 
 ### GitHub Actions Dashboard
 
-View workflow runs at: `https://github.com/YOUR_ORG/YOUR_REPO/actions`
+View workflow runs at <https://github.com/NJUPT-SAST/sast-approval-next/actions>.
 
 ### Email Notifications
 
@@ -366,7 +366,7 @@ Add Slack notifications using the `slack-send` action.
 ## Additional Resources
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Tauri Documentation](https://tauri.app/v1/guides/)
+- [Tauri Documentation](https://tauri.app/)
 - [Next.js Deployment](https://nextjs.org/docs/deployment)
 - [Vercel Documentation](https://vercel.com/docs)
-- [Code Signing Guide](https://tauri.app/v1/guides/distribution/sign-macos)
+- [Code Signing Guide](https://tauri.app/distribute/sign/macos/)

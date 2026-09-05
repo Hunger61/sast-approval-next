@@ -1,88 +1,93 @@
-# Copilot Instructions for react-quick-starter
+# Copilot Instructions for sast-approval-next
 
 ## Project Architecture
 
-This is a **Next.js 16 (App Router) + Tauri v2 hybrid desktop application** combining:
+**SAST 通用比赛管理评审系统**, the competition management and review platform of NJUPT SAST, built as a **Next.js 16 (App Router) + Tauri 2.11 hybrid application**:
 
-- **Frontend**: React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui components
-- **Desktop wrapper**: Tauri v2.9 (Rust-based) for native desktop capabilities
-- **State management**: Zustand (configured but not actively used in starter)
+- **Frontend**: React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui (56 components)
+- **Desktop wrapper**: Tauri 2.11 (Rust) for the native build
+- **State management**: Zustand (`lib/store/user.ts` for auth state, `lib/store/ui.ts` for the dynamic breadcrumb label)
+- **HTTP**: axios, in `lib/api/`, kept byte-compatible with the legacy `approval-system` backend
+
+This repo is a full rewrite of the legacy CRA app. `MIGRATION.md` is the authoritative record of what moved where and which behaviours changed on purpose.
 
 ### Dual Runtime Model
 
-1. **Web mode** (`pnpm dev`): Next.js dev server at http://localhost:3000
-2. **Desktop mode** (`pnpm tauri dev`): Tauri wraps the Next.js app in a native window
+1. **Web mode** (`pnpm dev`): Next.js dev server at <http://localhost:3000>
+2. **Desktop mode** (`pnpm tauri dev`): Tauri wraps the app in a native window
 
-⚠️ **Critical**: When Tauri builds for production, it expects static export from Next.js (`out/` directory). The `tauri.conf.json` points `frontendDist` to `../out`, but Next.js currently uses default (server-side) mode. To enable Tauri production builds, you must add `output: "export"` to `next.config.ts`.
+`next.config.ts` sets `output: "export"`, so `pnpm build` emits the static `out/` directory that `src-tauri/tauri.conf.json` loads through `frontendDist: "../out"`. Do not remove the static export, the desktop build depends on it.
+
+Two consequences worth remembering:
+
+- Unknown dynamic route segments cannot be pre-rendered, so legacy path params became query params (`/activity/detail?id=`, `/review/list?comId=&page=`). The full mapping is in `CLAUDE.md`.
+- Any page calling `useSearchParams()` must be wrapped in `<Suspense>`, otherwise the export fails.
 
 ## Key File Locations & Conventions
 
 ### Routing & Layouts
 
-- `app/layout.tsx`: Root layout, configures Geist fonts via `next/font/google`, imports `globals.css`
-- `app/page.tsx`: Home route demonstrating Tailwind + `next/image` usage
-- Path alias: `@/*` maps to repo root (e.g., `@/lib/utils`)
+- `app/layout.tsx`: metadata, Geist fonts, `Providers` (next-themes, tooltips, store hydration, Sentry, console banner), then `AppShell`.
+- `components/layout/app-shell.tsx`: renders a skeleton until the store hydrates, the login page when signed out, and the sidebar layout otherwise. Routes outside the role allow-list render the in-app 404.
+- `app/**/page.tsx`: 19 routes, every one a client component.
+- Path alias: `@/*` maps to the repo root (for example `@/lib/utils`).
+
+### Roles
+
+The backend returns a numeric `role` mapped in `lib/store/user.ts`: 0 `user`, 1 `judge`, 2 `approver`, 3 `admin`. `lib/navigation.ts` derives the sidebar menu, the route allow-list, and breadcrumb labels from it.
 
 ### Styling System
 
-- **Tailwind v4** via PostCSS plugin (`@tailwindcss/postcss`)
-- `app/globals.css`:
-  - Imports `tailwindcss` and `tw-animate-css`
-  - Defines CSS variables for theme colors (oklch color space)
-  - Uses `@theme inline` to map CSS vars to Tailwind utilities
-  - Custom dark mode variant: `@custom-variant dark (&:is(.dark *))`
-- Color system: All colors defined as CSS variables (light + `.dark` overrides)
+- **Tailwind v4** via the PostCSS plugin (`@tailwindcss/postcss`)
+- `app/globals.css` imports `tailwindcss` and `tw-animate-css`, defines oklch CSS variables, maps them with `@theme inline`, and declares `@custom-variant dark (&:is(.dark *))`
+- Dark mode is class based and driven by `next-themes`
 
 ### Component Patterns
 
-- **shadcn/ui components** in `components/ui/`
-- Example: `components/ui/button.tsx` uses:
-  - `@radix-ui/react-slot` for `asChild` polymorphism
-  - `class-variance-authority` for variant management
-  - `cn()` utility from `@/lib/utils` (clsx + tailwind-merge)
-- Config: `components.json` defines shadcn settings (New York style, RSC mode)
+- **shadcn/ui components** live in `components/ui/` (new-york style, RSC mode, config in `components.json`). All 56 are vendored already, import them directly and never add tests there.
+- Feature components: `components/layout/`, `components/auth/`, `components/common/`, `components/competition/`.
+- `components/schema-form/` is an in-house JSON-Schema form engine that replaces form-render 1.x. `useSchemaForm()` mirrors the legacy `useForm` API, and `widgets` injects custom controls.
+
+### API Layer
+
+- `lib/api/client.ts` owns the axios instance, injects the `Token` header, and on `errCode` 1003 / 1005 clears the session and returns to the login page.
+- Dev requests go through the `/api` rewrite in `next.config.ts`. Production and Tauri need an absolute `NEXT_PUBLIC_API_BASE_URL`, defaulting to `https://approve.sast.fun/api`.
+- `lib/api/__tests__/endpoints.test.ts` asserts method, URL and body for all 48 endpoints. Update and run it whenever you touch `lib/api/`.
 
 ### Tauri Integration
 
-- `src-tauri/src/lib.rs`: Main Tauri setup (enables debug logging in dev)
-- `src-tauri/tauri.conf.json`:
-  - `devUrl`: Points to Next.js dev server
-  - `frontendDist`: Expects `../out` (static export)
-  - `beforeDevCommand`: Runs `pnpm dev`
-  - `beforeBuildCommand`: Runs `pnpm build`
+- `src-tauri/src/lib.rs`: builder setup, updater plugin on desktop, debug logging in dev.
+- `src-tauri/src/commands.rs`: only `greet` is registered today, kept as a reference for the IPC pattern.
+- `lib/tauri.ts` is the sole caller of `invoke()`. Business code imports named wrappers and gates them with `isTauri()`.
+- `src-tauri/tauri.conf.json`: `identifier` `fun.sast.approval`, `beforeDevCommand` `pnpm dev`, `beforeBuildCommand` `pnpm build`, and a CSP whose `connect-src` allow-lists `https://approve.sast.fun`. A new backend origin must be added there or desktop requests fail silently.
 
 ## Developer Workflows
 
 ### Package Management
 
-**Always use pnpm** (lockfile present). Commands:
+**Always use pnpm** (single lockfile at the repo root, pnpm workspace with `docs/`):
 
-- `pnpm install` - Install dependencies
-- `pnpm dev` - Next.js dev server (web-only)
-- `pnpm tauri dev` - Desktop app with hot reload
-- `pnpm build` - Next.js production build
-- `pnpm tauri build` - Create desktop installer (requires static export)
+- `pnpm install` from the repo root, which also installs the Husky hooks
+- `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`
+- `pnpm tauri dev`, `pnpm tauri build` (no `tauri` script exists, pnpm resolves `node_modules/.bin`)
+- `pnpm docs:dev` for the Fumadocs site on port 3001
+
+`pnpm start` is inherited from the starter template and unusable, a static export has no server.
 
 ### Code Quality
 
-- **Type checking**: `pnpm exec tsc --noEmit` (strict mode enabled)
-- **Linting**: `pnpm run lint` (ESLint flat config with `eslint-config-next`)
-  - Auto-fix: `pnpm exec eslint . --fix`
-  - Single file: `pnpm exec eslint <file>`
-- **No test framework configured** (no test scripts present)
+- **Type checking**: `pnpm typecheck` (strict mode)
+- **Linting**: `pnpm lint` (ESLint flat config with `eslint-config-next`), single file with `pnpm exec eslint <file>`
+- **Tests**: Jest 30 with jsdom and Testing Library, 11 suites and 68 tests. Config in `jest.config.ts`, guide in `TESTING.md`
+- **Commits**: commitlint enforces Conventional Commits on `commit-msg`, `lint-staged` runs ESLint and Prettier on `pre-commit`
 
 ### Adding shadcn/ui Components
 
-Use the shadcn CLI: `pnpm dlx shadcn@latest add <component-name>`
-
-- Components install to `components/ui/`
-- Automatically uses configured aliases and style
+Only for a component that is genuinely missing: `pnpm dlx shadcn@latest add <component-name>`
 
 ## Project-Specific Patterns
 
 ### Import Paths
-
-Always use `@/` alias for internal imports:
 
 ```typescript
 import { cn } from "@/lib/utils"
@@ -91,29 +96,32 @@ import { Button } from "@/components/ui/button"
 
 ### Component Composition
 
-Prefer composition patterns with `asChild` for buttons/links:
-
 ```tsx
 <Button asChild>
   <Link href="/path">Click me</Link>
 </Button>
 ```
 
-### Dark Mode
+### Loading State
 
-- Class-based dark mode (not media query)
-- Apply `.dark` class to parent element
-- All color utilities automatically support dark variants via custom variant
+Do not call `setState` synchronously inside an effect, the React Compiler rules flag it. Use `lib/hooks/use-load-state.ts` instead.
 
 ### Styling Utilities
 
-- Use `cn()` from `@/lib/utils` to merge Tailwind classes safely
-- Example: `cn("base-classes", conditionalClass && "conditional-classes", className)`
+Use `cn()` from `@/lib/utils` to merge Tailwind classes: `cn("base", condition && "conditional", className)`.
 
 ## Known Configuration Notes
 
-- **ESLint**: Flat config format with Next.js core-web-vitals + TypeScript rules
-- **TypeScript**: Strict mode, bundler module resolution, JSX set to `react-jsx`
-- **Next.js config**: Currently minimal (no custom webpack/rewrites)
-- **Rust toolchain**: Requires v1.77.2+ for Tauri builds
-- **WARP.md exists**: Contains terminal-focused guidance (complementary to this file)
+- **ESLint**: flat config, Next.js core-web-vitals plus TypeScript rules
+- **TypeScript**: strict mode, bundler module resolution, `react-jsx`
+- **Next.js config**: static export, unoptimized images, dev-only `/api` rewrites, and the `next-intl` plugin
+- **Rust toolchain**: v1.77.2 or later
+- **Versions are aligned at `3.0.0`** across `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`
+
+## Known Scaffolding
+
+Left over from the starter template, with no runtime caller:
+
+- `i18n/` and the `next-intl` plugin. Nothing calls `useTranslations`, no provider is mounted, and the message files still hold template copy. The UI is Chinese-only.
+- `lib/env.ts` and `greet` in `lib/tauri.ts`, covered by tests only.
+- `public/next.svg`, `vercel.svg`, `window.svg`, `file.svg`, `globe.svg`.

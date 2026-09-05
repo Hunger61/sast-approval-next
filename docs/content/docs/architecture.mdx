@@ -1,0 +1,106 @@
+---
+title: 架构与目录
+description: 路由表、目录职责、状态管理与主题方案
+---
+
+# 架构与目录
+
+## 工作区
+
+pnpm monorepo，两个包共用根目录的 `pnpm-lock.yaml`：
+
+| 包     | 路径    | 端口 | 产物                                      |
+| ------ | ------- | ---- | ----------------------------------------- |
+| 主应用 | `/`     | 3000 | `out/`（静态导出，Tauri 依赖它）          |
+| 文档站 | `docs/` | 3001 | `docs/.next/`（完整服务端模式，独立部署） |
+
+`pnpm install` 必须在仓库根目录执行。
+
+## 路由与查询参数
+
+静态导出无法预渲染未知的动态路由段，因此旧版的路径参数统一改为查询参数，其余路径保持不变。
+
+| 旧版                                 | 新版                              |
+| ------------------------------------ | --------------------------------- |
+| `/activity/:id`                      | `/activity/detail?id=`            |
+| `/activity/:id/register`             | `/activity/register?id=`          |
+| `/activity/:id/register-detail`      | `/activity/register-detail?id=`   |
+| `/activity/:id/work-detail`          | `/activity/work-detail?id=`       |
+| `/activity/:id/manage`               | `/activity/manage?id=`            |
+| `/activity/:id/manage/edit`          | `/activity/manage/edit?id=`       |
+| `/activity/:id/manage/editWhiteList` | `/activity/manage/white-list?id=` |
+| `/activity/:id/notice(/:noticeId)`   | `/activity/notice?id=&noticeId=`  |
+| `/review/list/:comId/:page`          | `/review/list?comId=&page=`       |
+| `/review/detail/:id`                 | `/review/detail?id=`              |
+
+`pnpm build` 共导出 19 条路由。任何使用 `useSearchParams()` 的页面都必须包在 `<Suspense>` 里，
+否则静态导出会直接报错。
+
+## 目录职责
+
+```
+app/            19 条路由，全部是客户端页面
+components/
+  layout/       AppShell、侧边栏、手机端底部导航、导航图标、页头页脚、主题切换、Providers
+  auth/         登录页（含验证码）
+  common/       PageHeader、分区标题、统计条、表格容器、状态占位、分页、
+                日期时间选择、文件拖拽、步骤条
+  competition/  比赛卡片与表单、封面上传、时间区间、评委分配、白名单、公告
+  schema-form/  自研 JSON-Schema 表单引擎
+  ui/           56 个 shadcn/ui 组件，不要在此写测试
+hooks/          use-mobile，供 components/ui/sidebar 使用
+i18n/           next-intl 脚手架，当前未接入 UI
+lib/            接口层、状态、常量、类型、工具、监控
+src-tauri/      Rust 桌面壳
+```
+
+## 应用外壳
+
+`app/layout.tsx` 依次挂载 metadata、Geist 字体、`Providers`、`AppShell`。
+
+`Providers` 包含 next-themes、`TooltipProvider`、Sonner 的 `Toaster`，以及一个 `StoreHydrator`：
+它在挂载后把 localStorage 里的登录态注入 Zustand，同时打印控制台彩蛋并按需初始化 Sentry。
+
+`AppShell` 的渲染分三种情况：
+
+1. 尚未水合：渲染骨架，避免读取 localStorage 造成闪烁
+2. 未登录：只渲染登录页
+3. 已登录：渲染侧边栏布局，路由不在角色白名单内时渲染应用内 404
+
+## 状态
+
+- `lib/store/user.ts`：登录态、用户资料、收件箱红点，以及 `role` 数字与字符串的双向映射
+- `lib/store/ui.ts`：面包屑的动态标题，路由变化时由 `AppShell` 重置
+- `lib/hooks/use-load-state.ts`：请求键驱动的加载状态。**不要在 effect 里同步调用 setState**，
+  `eslint-config-next` 的 React Compiler 规则会直接报错
+- `lib/hooks/use-logout.ts`：清空本地登录态并回到登录页，侧边栏与页头共用
+
+## 存储兼容
+
+`lib/storage.ts` 封装 localStorage，键名与旧版完全一致
+（`approval-system-token`、`userState`、`inboxPoint`、`allReadState`、`allFoldState`、
+`everyInboxMessageState`、`listTotal`、`reviewEnd` 等），旧版用户的登录态可以无感沿用。
+
+## 主题
+
+Tailwind v4 通过 PostCSS 插件接入，颜色全部是 `app/globals.css` 里的 oklch CSS 变量，
+用 `@theme inline` 映射成 Tailwind 工具类。深色模式基于 class，由 next-themes 驱动，
+自定义变体是 `@custom-variant dark (&:is(.dark *))`。
+
+## 表单引擎
+
+`components/schema-form/` 用 shadcn 组件复刻了旧版 form-render 1.x 的能力，后端下发的 schema 无需改动：
+
+- `useSchemaForm()` 提供 `setValueByPath` / `getValues` / `submit`，与旧版 `useForm` 对齐
+- 支持嵌套对象、`select` / `radio` / `slider` / `textarea`、`required`、`rules.pattern`、`default`、`order`
+- `widgets` 属性注入自定义控件，项目提交页用 `createSchemaUploader(competitionId)` 实现对象存储直传
+
+## 桌面端
+
+`src-tauri/tauri.conf.json` 把 `frontendDist` 指向 `../out`，`identifier` 是 `fun.sast.approval`。
+
+`lib/tauri.ts` 是全项目唯一调用 `invoke()` 的文件，业务代码从中 import 具名函数并用 `isTauri()` 做判断。
+目前注册的 Rust 命令只有 `greet`，作为 IPC 写法的可运行样例保留。
+
+CSP 的 `connect-src` 已放行 `https://approve.sast.fun`。换后端地址时必须同步修改，
+否则桌面端的请求会被静默拦截。

@@ -1,0 +1,122 @@
+---
+title: 接口层
+description: axios 封装、鉴权、基地址策略与 48 个接口清单
+---
+
+# 接口层
+
+`lib/api/` 与旧版 `approval-system/src/api/` 一一对应，方法、URL、查询参数、请求体字段完全一致。
+
+## 客户端封装
+
+`lib/api/client.ts` 导出两样东西：
+
+- `API_BASE_URL`：解析后的基地址
+- `apis`：配置好的 axios 实例，全项目所有请求都走它
+
+行为要点：
+
+- 请求拦截器从 localStorage 读取 token，注入 `Token` 请求头
+- 响应拦截器检查业务字段，`errCode` 为 `1003` / `1005` 时弹出提示、清空本地状态、跳回登录页
+- blob 响应没有 `success` 字段，会被跳过，不会误判为失败
+
+## 基地址
+
+| 场景          | 基地址                                                 |
+| ------------- | ------------------------------------------------------ |
+| `pnpm dev`    | `/api`，由 `next.config.ts` 的 rewrites 代理，规避跨域 |
+| 生产 / 桌面端 | `NEXT_PUBLIC_API_BASE_URL`，必须是绝对地址             |
+| 两者都未配置  | 回落到 `https://approve.sast.fun/api`                  |
+
+静态导出没有 Node 服务器，rewrites 只在 `next dev` 下注册，因此生产构建必须显式提供绝对地址。
+桌面端还要注意 `src-tauri/tauri.conf.json` 的 CSP：`connect-src` 没放行的源会被静默拦截。
+
+## 契约测试
+
+`lib/api/__tests__/endpoints.test.ts` 用 19 个用例断言方法、URL 与请求体，是保证「与旧后端完全兼容」的回归基线。
+
+`lib/api/` 有任何增改，都要在同一个提交里更新这个套件，并先跑它。
+
+## 接口清单
+
+### 公共（`lib/api/public.ts`）
+
+| 方法                       | HTTP | URL                             |
+| -------------------------- | ---- | ------------------------------- |
+| `login`                    | POST | `/login`                        |
+| `getValidateCode`          | GET  | `/getValidateCode`              |
+| `getCompetitionNoticeList` | GET  | `/com/notice/list`              |
+| `fileDownload`             | GET  | `/com/file/download`            |
+| `downloadCertificate`      | GET  | `/com/file/downloadCertificate` |
+
+### 选手（`lib/api/user.ts`）
+
+| 方法                       | HTTP | URL                           |
+| -------------------------- | ---- | ----------------------------- |
+| `getAllCompetitionList`    | GET  | `/user/com/list`              |
+| `searchCompetition`        | GET  | `/user/com/search`            |
+| `getSignedCompetitionList` | GET  | `/user/com/signList`          |
+| `getCompetitionInfo`       | GET  | `/user/com/info/:id`          |
+| `getCompetitionSignInfo`   | GET  | `/user/com/signInfo/:id`      |
+| `signUp`                   | POST | `/user/com/signUp`            |
+| `getTeamInfo`              | GET  | `/user/com/teamInfo/:id`      |
+| `uploadWork`               | POST | `/user/com/upload`            |
+| `deleteWork`               | POST | `/user/com/delete`            |
+| `getWorkInfo`              | GET  | `/user/com/getSchema/:id`     |
+| `getWorkSchema`            | GET  | `/user/com/schema/:id`        |
+| `uploadWorkSchema`         | POST | `/user/com/uploadSchema/:id`  |
+| `getUserProfile`           | GET  | `/user/profile`               |
+| `getLicense`               | GET  | `/user/com/uploadCertificate` |
+
+### 审核与评审（`lib/api/judge.ts`）
+
+| 方法                      | HTTP | URL                        |
+| ------------------------- | ---- | -------------------------- |
+| `getJudgeCompetitionList` | GET  | `/review/competition-list` |
+| `getJudgeWorkList`        | GET  | `/review/program-list`     |
+| `getJudgeWorkInfo`        | GET  | `/review/program-info`     |
+| `getJudgeWorkTotal`       | GET  | `/review/total`            |
+| `uploadWorkJudgeInfo`     | POST | `/review/upload`           |
+| `judgePoint`              | GET  | `/review/red-point`        |
+| `importAccountsFromExcel` | POST | `/review/import`           |
+| `getScoreCompetitionList` | GET  | `/score/competition-list`  |
+| `getScoreWorkList`        | GET  | `/score/program-list`      |
+| `getScoreWork`            | GET  | `/score/program-info`      |
+| `getScoreWorkTotal`       | GET  | `/score/total`             |
+| `uploadWorkScoreInfo`     | POST | `/score/upload`            |
+| `scorePoint`              | GET  | `/score/red-point`         |
+
+### 管理员（`lib/api/admin.ts`）
+
+| 方法                               | HTTP | URL                          |
+| ---------------------------------- | ---- | ---------------------------- |
+| `createCompetitionInfo`            | POST | `/admin/com/create`          |
+| `editCompetitionInfo`              | POST | `/admin/com/edit`            |
+| `deleteCompetitionInfo`            | POST | `/admin/com/delete`          |
+| `viewCompetitionInfo`              | GET  | `/admin/com/competitionInfo` |
+| `getCompetitionList`               | GET  | `/admin/com/competitionList` |
+| `getManageCompetitionList`         | GET  | `/admin/com/manager`         |
+| `editWhiteList`                    | POST | `/admin/com/whitelist`       |
+| `assignJudge`                      | POST | `/admin/judge/assign`        |
+| `getUserInfo`                      | GET  | `/admin/userInfo`            |
+| `releaseNotice`                    | POST | `/admin/notice/release`      |
+| `editNotice`                       | POST | `/admin/notice/edit`         |
+| `deleteCompetitionNotice`          | POST | `/admin/notice/del`          |
+| `exportJudgeResult`                | GET  | `/admin/data/result`         |
+| `exportTeamInfo`                   | GET  | `/admin/data/exportComInfo`  |
+| `exportWorkFile`                   | GET  | `/admin/data/exportWork`     |
+| `exportWorkFileDataToAssignScorer` | GET  | `/admin/exportWorkData`      |
+
+查询参数与请求体的具体形状见各文件的 JSDoc 与契约测试。
+
+## 已保留但 UI 未调用的接口
+
+旧版就存在、界面上没有入口的接口一并保留，避免后续需要时重新对接：
+`fileDownload`、`getUserInfo`、`getSignedCompetitionList`、`deleteWork`、`uploadWork`、
+`judgePoint`、`scorePoint`。
+
+## 与旧版的两处请求差异
+
+1. `deleteCompetitionInfo` 旧版用 `qs.stringify` 生成字符串体，XHR 会把 `Content-Type` 置为 `text/plain`。
+   现改用 `URLSearchParams`，请求体仍是 `comId=<id>`，`Content-Type` 变成标准的 `application/x-www-form-urlencoded`。
+2. GET 请求上旧版挂了一个从未生效的 `FormData` body（浏览器会丢弃），已移除，URL 参数不变。

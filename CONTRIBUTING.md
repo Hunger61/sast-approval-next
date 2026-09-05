@@ -1,6 +1,6 @@
-# Contributing to React Quick Starter
+# 贡献指南 / Contributing
 
-Thank you for your interest in contributing to React Quick Starter! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to **SAST 通用比赛管理评审系统**. This document covers the setup, conventions and review process for this repository.
 
 ## Table of Contents
 
@@ -23,26 +23,26 @@ See [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/react-quick-starter.git
-   cd react-quick-starter
+   git clone https://github.com/YOUR_USERNAME/sast-approval-next.git
+   cd sast-approval-next
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/AstroAir/react-quick-starter.git
+   git remote add upstream https://github.com/NJUPT-SAST/sast-approval-next.git
    ```
 
 ## Development Setup
 
 ### Prerequisites
 
-- **Node.js** 20.x or later
-- **pnpm** 8.x or later
-- **Rust** 1.70+ (for Tauri development)
+- **Node.js** 20.x or later (see `.nvmrc`)
+- **pnpm** 10.x (`packageManager` pins pnpm 10.30.3)
+- **Rust** 1.77.2+ (only for Tauri desktop builds)
 
 ### Installation
 
 ```bash
-# Install dependencies
+# Install dependencies (always from the repo root, it covers the docs workspace too)
 pnpm install
 
 # Start development server
@@ -69,11 +69,11 @@ pnpm tauri info
 
 ### Branch Naming
 
-Create a feature branch from `main`:
+The default branch is `master`. Create a feature branch from it:
 
 ```bash
-git checkout main
-git pull upstream main
+git checkout master
+git pull upstream master
 git checkout -b <type>/<description>
 ```
 
@@ -96,13 +96,13 @@ Examples:
 
 ```bash
 git fetch upstream
-git checkout main
-git merge upstream/main
+git checkout master
+git merge upstream/master
 ```
 
 ## Commit Guidelines
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/) specification.
+Conventional Commits are **enforced** by commitlint on the `commit-msg` hook, a non-conforming message is rejected locally. See [the spec](https://www.conventionalcommits.org/).
 
 ### Commit Message Format
 
@@ -133,11 +133,11 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 ### Examples
 
 ```bash
-feat(ui): add Button component variants
-fix(auth): resolve token refresh loop
-docs(readme): update installation instructions
-refactor(utils): simplify cn helper function
-test(button): add accessibility tests
+feat(review): add score breakdown to the reviewer detail page
+fix(auth): keep the captcha uuid across a failed login
+docs(readme): document the desktop CSP allow-list
+refactor(api): move the Excel import into the api layer
+test(navigation): cover the judge route allow-list
 ```
 
 ## Pull Request Process
@@ -146,11 +146,12 @@ test(button): add accessibility tests
 2. **Run all checks locally**:
    ```bash
    pnpm lint
+   pnpm typecheck
    pnpm test
    pnpm build
    ```
 3. **Push your branch** to your fork
-4. **Create a Pull Request** against `main`
+4. **Create a Pull Request** against `master`
 5. **Fill out the PR template** completely
 6. **Request review** from maintainers
 7. **Address feedback** and make requested changes
@@ -173,13 +174,15 @@ test(button): add accessibility tests
 - **ESLint --fix** runs on staged TS/JS files
 - **commitlint** validates commit messages against Conventional Commits
 
-First-time setup: `pnpm install` — the `prepare` script installs git hooks via Husky. If hooks don't fire, run `pnpm exec husky` manually.
+First-time setup: `pnpm install`. The `prepare` script installs the Husky hooks (`pre-commit` runs lint-staged, `commit-msg` runs commitlint). If hooks do not fire, run `pnpm exec husky` manually.
+
+`lint-staged` is configured in `.lintstagedrc.json`.
 
 ### TypeScript
 
 - Use TypeScript for all new code
 - Enable strict mode
-- Avoid `any` type; use proper typing
+- Avoid `any`, prefer precise types from `lib/types/`
 - Export types from dedicated type files when shared
 
 ### React
@@ -200,12 +203,15 @@ First-time setup: `pnpm install` — the `prepare` script installs git hooks via
 
 ```
 components/
-├── ui/           # shadcn/ui components
-│   └── button.tsx
-├── feature/      # Feature-specific components
-│   └── header.tsx
-└── index.ts      # Barrel exports
+├── ui/            # vendored shadcn/ui components, do not add tests here
+├── layout/        # AppShell, sidebar, header, footer, providers
+├── auth/          # login view
+├── common/        # page header, states, pagination, pickers, dropzone, steps
+├── competition/   # competition card & form, uploader, reviewers, white list
+└── schema-form/   # JSON-Schema form engine
 ```
+
+There are no barrel `index.ts` files. Import from the concrete module path.
 
 ### Naming Conventions
 
@@ -234,31 +240,14 @@ pnpm test:coverage
 
 ### Writing Tests
 
-- Place tests next to source files: `Component.test.tsx`
-- Use React Testing Library for component tests
-- Test behavior, not implementation details
-- Aim for meaningful coverage, not 100%
+- Put grouped domain tests in a `__tests__/` directory, or collocate a single `*.test.ts` next to its module. Both layouts are already in use.
+- **Never add test files inside `components/ui/`**, those are vendored shadcn/ui files.
+- Use React Testing Library plus `user-event` for component tests.
+- Test behaviour, not implementation details.
+- Coverage thresholds are enforced in CI: 60% branches and functions, 70% lines and statements.
+- Touching `lib/api/` means updating `lib/api/__tests__/endpoints.test.ts` in the same commit. It is the contract baseline against the legacy backend.
 
-### Test Structure
-
-```typescript
-import { render, screen } from '@testing-library/react'
-import { Button } from './button'
-
-describe('Button', () => {
-  it('renders children correctly', () => {
-    render(<Button>Click me</Button>)
-    expect(screen.getByRole('button')).toHaveTextContent('Click me')
-  })
-
-  it('handles click events', async () => {
-    const handleClick = jest.fn()
-    render(<Button onClick={handleClick}>Click</Button>)
-    await userEvent.click(screen.getByRole('button'))
-    expect(handleClick).toHaveBeenCalledTimes(1)
-  })
-})
-```
+Patterns and worked examples live in [TESTING.md](./TESTING.md).
 
 ## Documentation
 
@@ -271,11 +260,13 @@ describe('Button', () => {
 
 ### Documentation Files
 
-- `README.md` - Project overview and quick start
-- `README_zh.md` - Chinese documentation
-- `CONTRIBUTING.md` - This file
+- `README.md` / `README_zh.md` - project overview and quick start
+- `CLAUDE.md` / `AGENTS.md` / `.github/copilot-instructions.md` - guidance for AI coding assistants
+- `MIGRATION.md` - mapping from the legacy `approval-system`, keep it current when behaviour diverges
+- `CONTRIBUTING.md` - this file
 - `CI_CD.md` - CI/CD setup guide
-- `TESTING.md` - Testing guide
+- `TESTING.md` - testing guide
+- `src-tauri/UPDATER.md` - desktop updater signing
 
 ### Code Comments
 
@@ -287,7 +278,7 @@ describe('Button', () => {
 
 If you have questions, feel free to:
 
-1. Check existing [Issues](https://github.com/AstroAir/react-quick-starter/issues)
+1. Check existing [Issues](https://github.com/NJUPT-SAST/sast-approval-next/issues)
 2. Open a new issue for discussion
 3. Reach out to maintainers
 

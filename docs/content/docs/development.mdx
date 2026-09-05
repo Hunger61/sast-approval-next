@@ -1,0 +1,103 @@
+---
+title: 开发指南
+description: 常用命令、环境变量、测试、构建与发布
+---
+
+# 开发指南
+
+## 环境要求
+
+- Node.js 20.x 及以上（见 `.nvmrc`）
+- pnpm 10.x（`packageManager` 锁定 pnpm 10.30.3）
+- Rust 1.77.2 及以上，仅桌面端构建需要
+
+## 常用命令
+
+```bash
+pnpm install          # 必须在仓库根目录执行，同时安装 Husky hooks
+pnpm dev              # 开发服务器，端口 3000，/api 代理生效
+pnpm build            # 静态导出到 out/，共 19 条路由
+pnpm lint             # ESLint
+pnpm typecheck        # tsc --noEmit
+pnpm test             # Jest，11 个套件 / 68 个用例
+pnpm test:coverage    # 覆盖率报告输出到 coverage/
+pnpm format           # Prettier
+
+pnpm tauri dev        # 桌面端开发模式
+pnpm tauri build      # 构建当前平台安装包
+pnpm tauri info       # 环境诊断
+
+pnpm docs:dev         # 本文档站，端口 3001
+```
+
+`pnpm start` 来自初始模板，在本项目用不上：静态导出没有服务端。
+
+## 环境变量
+
+把 `.env.example` 复制成 `.env.local`。所有变量都是 `NEXT_PUBLIC_*`，会被打进前端产物，
+任何情况下都不要往里放密钥。
+
+| 变量                       | 是否必填 | 用途                                        |
+| -------------------------- | -------- | ------------------------------------------- |
+| `NEXT_PUBLIC_APP_NAME`     | 必填     | 应用显示名，由 `lib/env.ts` 校验            |
+| `NEXT_PUBLIC_API_BASE_URL` | 生产必填 | 后端绝对地址，开发环境留空即可走代理        |
+| `NEXT_PUBLIC_API_ORIGIN`   | 可选     | `pnpm dev` 的代理目标                       |
+| `NEXT_PUBLIC_SENTRY_DSN`   | 可选     | 留空则完全不初始化 Sentry，也无任何外部请求 |
+| `NEXT_PUBLIC_APP_VERSION`  | 可选     | Sentry release 标记                         |
+
+## 添加组件
+
+56 个 shadcn/ui 组件已经全部落到 `components/ui/`，直接 import。
+只有确实缺少某个组件时才执行 `pnpm dlx shadcn@latest add <name>`。
+
+## 测试
+
+- 运行器：Jest 30（`next/jest`）+ Testing Library，jsdom 环境
+- 两种组织方式并存：`__tests__/` 目录与紧邻源文件的 `*.test.ts`
+- **不要在 `components/ui/` 下写测试**，那是 vendored 的 shadcn 文件
+- 覆盖率阈值：分支与函数 60%，行与语句 70%
+- 改动 `lib/api/` 时先跑 `lib/api/__tests__/endpoints.test.ts`
+
+完整约定见仓库根目录的 `TESTING.md`。
+
+## 提交规范
+
+- `pre-commit`：`lint-staged` 对暂存文件跑 ESLint `--fix` 与 Prettier，配置在 `.lintstagedrc.json`
+- `commit-msg`：commitlint 校验 Conventional Commits，不合规的信息在本地就会被拒绝
+- 两个 hook 都由 `pnpm install` 的 `prepare` 脚本安装
+
+## 构建与发布
+
+### Web
+
+```bash
+pnpm build
+```
+
+产物在 `out/`，用任意静态服务器托管。构建时必须提供 `NEXT_PUBLIC_API_BASE_URL`。
+
+### 桌面端
+
+```bash
+pnpm tauri build
+```
+
+产物在 `src-tauri/target/release/bundle/`。应用标识符是 `fun.sast.approval`，
+`package.json`、`tauri.conf.json`、`Cargo.toml` 三处版本号保持一致。
+
+更新器签名流程见 `src-tauri/UPDATER.md`，updater 插件当前是关闭状态。
+
+### CI
+
+GitHub Actions 由 `.github/workflows/ci.yml` 编排，推送到 `master` / `develop` 或提 PR 时触发，
+串起代码质量、测试、Tauri 跨平台构建三个可复用工作流。推 `v*` 标签会走 `release.yml`，
+构建产物并创建草稿 release。详见仓库根目录的 `CI_CD.md`。
+
+## 遗留脚手架
+
+以下内容来自初始模板，当前没有运行时调用方：
+
+- `i18n/` 与 `next.config.ts` 里的 `next-intl` 插件。没有组件调用 `useTranslations`，
+  也没有挂载 `NextIntlClientProvider`，文案文件里仍是模板内容，目前 UI 只有中文
+- `lib/env.ts` 与 `lib/tauri.ts` 的 `greet`：只有测试覆盖
+- `public/next.svg`、`vercel.svg`、`window.svg`、`file.svg`、`globe.svg`

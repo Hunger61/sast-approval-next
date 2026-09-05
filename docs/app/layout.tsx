@@ -4,7 +4,7 @@ import { RootProvider } from "fumadocs-ui/provider/next"
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
       <body>
         <RootProvider>{children}</RootProvider>
       </body>

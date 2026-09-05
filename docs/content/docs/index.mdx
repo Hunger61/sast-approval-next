@@ -1,10 +1,55 @@
 ---
-title: Getting Started
-description: Welcome to the react-quick-starter documentation.
+title: 项目概览
+description: SAST 通用比赛管理评审系统 (sast-approval-next) 的文档站首页
 ---
 
-# Getting Started
+# SAST 通用比赛管理评审系统
 
-This is the documentation skeleton for `react-quick-starter`.
+南京邮电大学大学生科学技术协会（SAST）的赛事管理与评审平台。
 
-Add your content here.
+本仓库是旧版 `approval-system`（CRA + antd 4 + Recoil + react-router 6）在新技术栈上的完整重写。
+后端接口未做任何改动，`lib/api/` 与旧版 `src/api/` 一一对应。
+
+## 技术栈
+
+| 方向     | 选型                                                   |
+| -------- | ------------------------------------------------------ |
+| 框架     | Next.js 16（App Router，`output: "export"`）+ React 19 |
+| 语言     | TypeScript 5.9（strict）                               |
+| 样式     | Tailwind CSS v4、oklch CSS 变量、class 深色模式        |
+| 组件     | shadcn/ui（new-york 风格），56 个组件                  |
+| 状态     | Zustand 5                                              |
+| 请求     | axios 1.x                                              |
+| 桌面端   | Tauri 2.11（Rust 1.77.2+）                             |
+| 测试     | Jest 30 + Testing Library（11 个套件 / 68 个用例）     |
+| 异常上报 | Sentry（仅在配置 DSN 时启用）                          |
+
+同一份代码支持两种运行形态：
+
+- **Web**：`pnpm dev`，开发服务器在 <http://localhost:3000>
+- **桌面端**：`pnpm tauri dev`，Tauri 把静态导出包进原生窗口
+
+## 业务角色
+
+登录后按后端返回的数字 `role` 映射，角色决定侧边栏菜单与可访问路由白名单。
+访问白名单之外的路由会渲染应用内 404。
+
+| `role` | 键名       | 角色       | 主要能力                                        |
+| ------ | ---------- | ---------- | ----------------------------------------------- |
+| 0      | `user`     | 参赛选手   | 浏览比赛、报名、提交项目材料                    |
+| 1      | `judge`    | 审核人员   | 审核项目、一键导入账号                          |
+| 2      | `approver` | 评审专家   | 给项目评分与评语                                |
+| 3      | `admin`    | 系统管理员 | 创建/编辑比赛、公告、白名单、评委分配、数据导出 |
+
+## 从这里开始
+
+- [架构与目录](/docs/architecture)：路由表、目录职责、状态与主题
+- [接口层](/docs/api)：axios 封装、鉴权、契约测试
+- [开发指南](/docs/development)：命令、环境变量、测试、构建与发布
+
+仓库内还有几份长期维护的文档：
+
+- `README.md` / `README_zh.md`：项目总览与快速开始
+- `MIGRATION.md`：逐页迁移对照、接口差异、有意为之的行为变更
+- `TESTING.md`：测试组织方式与约定
+- `CI_CD.md`：GitHub Actions 工作流与可选 secrets

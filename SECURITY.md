@@ -13,11 +13,11 @@ The latest `master` branch and the most recent tagged release receive security u
 
 **Do not report vulnerabilities via public GitHub issues.**
 
-Please use one of:
+Open a private advisory at
+<https://github.com/NJUPT-SAST/sast-approval-next/security/advisories/new>.
 
-1. **GitHub Security Advisories** (preferred): open a private advisory at
-   https://github.com/AstroAir/react-quick-starter/security/advisories/new
-2. **Email**: send details to `astro_air@126.com` with subject prefix `[security]`.
+If advisories are unavailable to you, reach the maintainers through the
+[NJUPT-SAST](https://github.com/NJUPT-SAST) organisation and prefix the subject with `[security]`.
 
 Include:
 
@@ -25,4 +25,13 @@ Include:
 - Steps to reproduce
 - Affected versions / commit SHA
 
-We aim to acknowledge reports within 7 days and to disclose / patch within 90 days. Critical issues may be fast-tracked.
+We aim to acknowledge reports within 7 days and to disclose or patch within 90 days. Critical issues may be fast-tracked.
+
+## Scope notes
+
+This is a browser and desktop client. It holds no server-side secrets.
+
+- Every environment variable is `NEXT_PUBLIC_*` and therefore visible to anyone who opens the app. Nothing secret belongs in `.env.local`.
+- The session token lives in `localStorage` under `approval-system-token`, matching the legacy `approval-system` for compatibility.
+- The desktop build runs under the CSP in `src-tauri/tauri.conf.json`, whose `connect-src` allow-lists only `self`, the Tauri IPC origins, and `https://approve.sast.fun`.
+- Backend and authentication issues belong to the API service, not this repository. Report those to the SAST backend maintainers.

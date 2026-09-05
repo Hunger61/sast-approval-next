@@ -1,271 +1,234 @@
 # Testing Guide
 
-This document provides information about the testing setup and how to run tests in this project.
+How tests are set up and run in `sast-approval-next`.
 
 ## Testing Stack
 
-- **Test Runner**: Jest 30.x
-- **Testing Library**: @testing-library/react 16.x
-- **Test Environment**: jsdom (simulates browser environment)
+- **Test Runner**: Jest 30.x, wired through `next/jest`
+- **Testing Library**: @testing-library/react 16.x plus user-event 14.x
+- **Test Environment**: jsdom
 - **Coverage Provider**: V8
-- **CI/CD**: GitHub Actions
+- **CI**: GitHub Actions (`.github/workflows/test.yml`, called by `ci.yml` and `release.yml`)
+
+## Current state
+
+11 suites, 68 tests, all passing.
+
+| Suite                                                   | Tests | Covers                                       |
+| ------------------------------------------------------- | ----- | -------------------------------------------- |
+| `lib/api/__tests__/endpoints.test.ts`                   | 19    | Method, URL and request body per endpoint    |
+| `lib/__tests__/navigation.test.ts`                      | 9     | Sidebar menus, route allow-list, breadcrumbs |
+| `components/schema-form/__tests__/schema-form.test.tsx` | 8     | Schema form engine                           |
+| `lib/__tests__/register-schema.test.ts`                 | 6     | Sign-up schema                               |
+| `lib/__tests__/form-templates.test.ts`                  | 5     | Form templates                               |
+| `lib/__tests__/user-store.test.ts`                      | 5     | Auth store and role mapping                  |
+| `lib/__tests__/datetime.test.ts`                        | 4     | Date and time formatting                     |
+| `lib/tauri.test.ts`                                     | 4     | Tauri IPC wrappers                           |
+| `lib/__tests__/file.test.ts`                            | 3     | Download and filename helpers                |
+| `lib/env.test.ts`                                       | 3     | Public env validation                        |
+| `lib/utils.test.ts`                                     | 2     | `cn()`                                       |
 
 ## Running Tests
 
-### Run all tests
-
 ```bash
-pnpm test
+pnpm test                                   # all tests
+pnpm test:watch                             # watch mode
+pnpm test:coverage                          # with coverage into coverage/
+pnpm test lib/api                           # a path pattern
+pnpm test --testNamePattern="navigation"    # a name pattern
 ```
 
-### Run tests in watch mode
+## Test file organization
 
-```bash
-pnpm test:watch
-```
-
-### Run tests with coverage
-
-```bash
-pnpm test:coverage
-```
-
-### Run specific test file
-
-```bash
-pnpm test path/to/test-file.test.tsx
-```
-
-### Run tests matching a pattern
-
-```bash
-pnpm test --testNamePattern="Button"
-```
-
-## Test File Structure
-
-### Test File Organization
-
-Tests are **collocated** with their source files:
-
-- `app/page.tsx` → `app/page.test.tsx`
-- `lib/utils.ts` → `lib/utils.test.ts`
-- `components/ui/button.tsx` → `components/ui/button.test.tsx`
-
-There is **no** `__tests__/` directory. Jest discovers `*.test.{ts,tsx}` anywhere under `app/`, `components/`, and `lib/` (see `testMatch` in `jest.config.ts`).
-
-Test files should be placed next to the files they test with the `.test.ts` or `.test.tsx` extension:
+Two layouts are in use, both discovered by the `testMatch` patterns in `jest.config.ts`
+(`**/__tests__/**/*.?([mc])[jt]s?(x)` and `**/?(*.)+(spec|test).?([mc])[jt]s?(x)`):
 
 ```
-components/
-  ui/
-    button.tsx
-    button.test.tsx  ← Test file
-app/
-  page.tsx
-  page.test.tsx      ← Test file
 lib/
+  __tests__/                 grouped domain tests
+    datetime.test.ts
+    file.test.ts
+    form-templates.test.ts
+    navigation.test.ts
+    register-schema.test.ts
+    user-store.test.ts
+  api/
+    __tests__/
+      endpoints.test.ts      the backend-compatibility baseline
+  env.ts
+  env.test.ts                collocated, next to its source
+  tauri.ts
+  tauri.test.ts
   utils.ts
-  utils.test.ts      ← Test file
+  utils.test.ts
+components/
+  schema-form/
+    __tests__/
+      schema-form.test.tsx
 ```
+
+Rules of thumb:
+
+- A `lib/` module with a single obvious counterpart can keep its test collocated.
+- Anything that grows past one file, or tests a directory rather than a module, goes into a `__tests__/` folder.
+- **Never add test files inside `components/ui/`.** Those are vendored shadcn/ui files, and `jest.config.ts` excludes them from coverage collection on purpose.
+- `src-tauri/` is excluded from Jest. Rust unit tests live in `src-tauri/src/commands.rs` and run with `cargo test`.
+
+## The endpoints baseline
+
+`lib/api/__tests__/endpoints.test.ts` asserts the HTTP method, URL and request body of every endpoint against the legacy `approval-system` backend contract. It is the regression baseline that keeps the rewrite drop-in compatible.
+
+Whenever you add or change anything in `lib/api/`, update that suite in the same commit and run it first.
 
 ## Writing Tests
 
-### Component Test Example
+### Component test
 
-```typescript
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { Button } from './button';
+```tsx
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { DataPagination } from "@/components/common/data-pagination"
 
-describe('Button', () => {
-  it('renders a button with text', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument();
-  });
+describe("DataPagination", () => {
+  it("emits the next page when the user clicks forward", async () => {
+    const onChange = jest.fn()
+    const user = userEvent.setup()
 
-  it('handles click events', async () => {
-    const handleClick = jest.fn();
-    const user = userEvent.setup();
+    render(<DataPagination current={1} pageSize={10} total={50} onChange={onChange} />)
+    await user.click(screen.getByRole("button", { name: "下一页" }))
 
-    render(<Button onClick={handleClick}>Click me</Button>);
-    await user.click(screen.getByRole('button'));
-
-    expect(handleClick).toHaveBeenCalledTimes(1);
-  });
-});
-```
-
-### Utility Function Test Example
-
-```typescript
-import { cn } from "./utils"
-
-describe("cn utility function", () => {
-  it("merges class names correctly", () => {
-    const result = cn("class1", "class2")
-    expect(result).toBe("class1 class2")
+    expect(onChange).toHaveBeenCalledWith(2, 10)
   })
 })
 ```
 
-## Coverage Reports
+### API test
 
-After running `pnpm test:coverage`, coverage reports are generated in the `coverage/` directory:
+`lib/api/` calls the axios instance as a function, so the suite mocks `apis` itself and
+inspects the config object of the last call:
 
-- **HTML Report**: `coverage/index.html` - Open in browser for interactive coverage report
-- **LCOV Report**: `coverage/lcov.info` - For CI/CD integration
-- **JUnit XML**: `coverage/junit.xml` - For CI/CD test result reporting
-- **Clover XML**: `coverage/clover.xml` - Alternative coverage format
+```ts
+jest.mock("@/lib/api/client", () => ({
+  apis: jest.fn(() => Promise.resolve({ data: {} })),
+  API_BASE_URL: "/api",
+}))
 
-### Viewing Coverage Report
+import { apis } from "@/lib/api/client"
+import * as admin from "@/lib/api/admin"
 
-Open the HTML coverage report in your browser:
+const mockedApis = apis as unknown as jest.Mock
+const lastCall = () => mockedApis.mock.calls[mockedApis.mock.calls.length - 1][0]
 
-```bash
-# Windows
-start coverage/index.html
+it("requests the paginated competition list", () => {
+  admin.getCompetitionList(1, 10)
+  const config = lastCall()
+  expect(config.method).toBe("get")
+  expect(config.url).toBe("/admin/com/competitionList?pageNum=1&pageSize=10")
+})
+```
 
-# macOS
-open coverage/index.html
+Look at the existing suites before inventing a new pattern, they already cover mocking `apis`, the Zustand stores, and localStorage.
 
-# Linux
-xdg-open coverage/index.html
+### Utility test
+
+```ts
+import { cn } from "./utils"
+
+describe("cn", () => {
+  it("merges class names", () => {
+    expect(cn("class1", "class2")).toBe("class1 class2")
+  })
+})
 ```
 
 ## Jest Configuration
 
-The Jest configuration is in `jest.config.ts` and includes:
+`jest.config.ts` is created through `next/jest`, so it picks up `next.config.ts` and `.env` files automatically. Notable settings:
 
-- **Test Environment**: jsdom for React component testing
-- **Setup File**: `jest.setup.ts` - Configures testing-library/jest-dom and mocks
-- **Module Name Mapper**: Handles path aliases (@/components, @/lib, etc.)
-- **Coverage Collection**: Configured to collect from app/, components/, and lib/ directories
-- **Reporters**: Default console reporter + JUnit XML reporter for CI
+- `testEnvironment: "jsdom"`
+- `setupFilesAfterEnv`: `jest.setup.ts`
+- `moduleNameMapper`: the `@/*` alias, CSS and image mocks from `__mocks__/`, and `@tauri-apps/api/core` mapped to `__mocks__/tauri-api.js`
+- `testPathIgnorePatterns`: `node_modules`, `.next`, `out`, `src-tauri`
+- `collectCoverageFrom`: `app/`, `components/`, `lib/`, excluding `components/ui/**` and every `layout.tsx`
+- `coverageThreshold`: 60% branches and functions, 70% lines and statements
+- `reporters`: default console reporter plus `jest-junit` writing `coverage/junit.xml`
 
-## Mocked Modules
+## Environment shims
 
-The following Next.js modules are automatically mocked in `jest.setup.ts`:
+`jest.setup.ts` provides what jsdom lacks and what Next.js needs:
 
-- `next/image` - Mocked to render as standard `<img>` tag
-- `next/navigation` - Mocked router hooks (useRouter, usePathname, useSearchParams)
+- `ResizeObserver`, `matchMedia`, `hasPointerCapture` / `setPointerCapture` / `releasePointerCapture`, and `scrollIntoView`, all required by the Radix primitives behind Select, Slider and friends
+- `next/image` mocked to a plain `<img>`
+- `next/navigation` mocked with `useRouter`, `usePathname` and `useSearchParams`
 
-## CI/CD Integration
+If a component test fails with a missing browser API, add the shim here rather than in the test file.
+
+## Coverage Reports
+
+`pnpm test:coverage` writes to `coverage/`:
+
+- `coverage/index.html` interactive HTML report
+- `coverage/lcov.info` for CI integrations
+- `coverage/junit.xml` JUnit results
+- `coverage/clover.xml` and `coverage/cobertura-coverage.xml`
+
+```bash
+open coverage/index.html        # macOS
+xdg-open coverage/index.html    # Linux
+start coverage/index.html       # Windows
+```
+
+## CI Integration
 
 Tests run automatically on:
 
-- Push to `master` or `develop` branches via `.github/workflows/ci.yml`
-- Pull requests to `master` or `develop` branches via `.github/workflows/ci.yml`
-- Version tags via `.github/workflows/release.yml`
+- Pushes to `master` or `develop`, via `.github/workflows/ci.yml`
+- Pull requests targeting `master` or `develop`, via `.github/workflows/ci.yml`
+- Version tags, via `.github/workflows/release.yml`
 
-The `test.yml` reusable workflow itself is invoked by `ci.yml`/`release.yml`, and can also be run manually with `workflow_dispatch` when you want to debug test/build steps in isolation.
+`test.yml` is a reusable workflow called by `ci.yml` and `release.yml`. It also accepts `workflow_dispatch` so you can debug the test and build steps in isolation.
 
-The CI pipeline:
-
-1. Installs dependencies
-2. Runs linting (`pnpm lint`)
-3. Runs tests with coverage (`pnpm test:coverage`)
-4. Uploads coverage to Codecov (if configured)
-5. Uploads test results and coverage as artifacts
-6. Builds the Next.js application (`pnpm build`)
-
-### GitHub Actions Workflow
-
-The workflow is defined in `.github/workflows/ci.yml`.
-
-### Setting up Codecov (Optional)
-
-To enable Codecov integration:
-
-1. Sign up at [codecov.io](https://codecov.io)
-2. Add your repository
-3. Add `CODECOV_TOKEN` to your GitHub repository secrets
-4. Coverage will be automatically uploaded on each CI run
+The pipeline installs dependencies, lints, runs tests with coverage, uploads coverage to Codecov when `CODECOV_TOKEN` is configured, publishes test results and coverage as artifacts, then builds the Next.js app and checks bundle size.
 
 ## Best Practices
 
-### 1. Test Behavior, Not Implementation
+### Test behaviour, not implementation
 
-❌ Bad:
-
-```typescript
+```ts
+// avoid
 expect(component.state.count).toBe(1)
-```
 
-✅ Good:
-
-```typescript
+// prefer
 expect(screen.getByText("Count: 1")).toBeInTheDocument()
 ```
 
-### 2. Use Accessible Queries
+### Use accessible queries
 
-Prefer queries that reflect how users interact with your app:
+`getByRole` first, then `getByLabelText`, `getByPlaceholderText`, `getByText`, and `getByTestId` only as a last resort.
 
-1. `getByRole` - Best for most elements
-2. `getByLabelText` - Good for form fields
-3. `getByPlaceholderText` - For inputs without labels
-4. `getByText` - For non-interactive elements
-5. `getByTestId` - Last resort
+### Use user-event over fireEvent
 
-### 3. Use User Events
-
-Use `@testing-library/user-event` instead of `fireEvent`:
-
-❌ Bad:
-
-```typescript
-fireEvent.click(button)
-```
-
-✅ Good:
-
-```typescript
+```ts
 const user = userEvent.setup()
 await user.click(button)
 ```
 
-### 4. Clean Up After Tests
+### Keep mocks honest
 
-Jest automatically cleans up after each test, but if you create side effects:
-
-```typescript
-afterEach(() => {
-  // Clean up
-  jest.clearAllMocks()
-})
-```
-
-### 5. Test Accessibility
-
-```typescript
-it('has accessible button', () => {
-  render(<Button>Click me</Button>);
-  const button = screen.getByRole('button', { name: /click me/i });
-  expect(button).toBeInTheDocument();
-});
-```
+`clearMocks` is on, so mock call history resets between tests automatically. Mock at the module boundary (`lib/api/client`) rather than stubbing axios internals.
 
 ## Troubleshooting
 
-### Tests are slow
+**Tests are slow.** Use `test.only` while developing, or `pnpm test:watch` to run only what changed.
 
-- Use `test.only()` to run a single test during development
-- Use `pnpm test:watch` to run only changed tests
+**Module not found.** Check that the alias in `jest.config.ts` matches `tsconfig.json`, and that Next.js-specific modules are mocked.
 
-### Module not found errors
+**"Not wrapped in act(...)" warnings.** Usually a store update outside `await`. Wrap the interaction in `await user.click(...)` or `await waitFor(...)`.
 
-- Check that path aliases in `jest.config.ts` match `tsconfig.json`
-- Ensure the module is properly mocked if it's a Next.js-specific module
-
-### Coverage not collected
-
-- Verify the file is in the `collectCoverageFrom` patterns in `jest.config.ts`
-- Check that the file isn't in `coveragePathIgnorePatterns`
+**Coverage not collected.** Verify the file matches `collectCoverageFrom` and is not under `components/ui/`.
 
 ## Resources
 
-- [Jest Documentation](https://jestjs.io/)
-- [Testing Library Documentation](https://testing-library.com/docs/react-testing-library/intro/)
-- [Testing Library Cheatsheet](https://testing-library.com/docs/react-testing-library/cheatsheet)
-- [Common Testing Mistakes](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+- [Jest](https://jestjs.io/)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [Testing Library cheatsheet](https://testing-library.com/docs/react-testing-library/cheatsheet)
