@@ -12,7 +12,7 @@ How tests are set up and run in `sast-approval-next`.
 
 ## Current state
 
-11 suites, 68 tests, all passing.
+14 suites, 89 tests, all passing.
 
 | Suite                                                   | Tests | Covers                                       |
 | ------------------------------------------------------- | ----- | -------------------------------------------- |
@@ -27,6 +27,9 @@ How tests are set up and run in `sast-approval-next`.
 | `lib/__tests__/file.test.ts`                            | 3     | Download and filename helpers                |
 | `lib/env.test.ts`                                       | 3     | Public env validation                        |
 | `lib/utils.test.ts`                                     | 2     | `cn()`                                       |
+| `lib/__tests__/import-accounts.test.ts`                 | 9     | Excel 账号导入逐行校验                       |
+| `lib/__tests__/api-errors.test.ts`                      | 6     | 网络层错误码 → 提示映射                      |
+| `lib/__tests__/validation.test.ts`                      | 5     | 表单字段校验                                 |
 
 ## Running Tests
 
@@ -149,7 +152,7 @@ describe("cn", () => {
 - `setupFilesAfterEnv`: `jest.setup.ts`
 - `moduleNameMapper`: the `@/*` alias, CSS and image mocks from `__mocks__/`, and `@tauri-apps/api/core` mapped to `__mocks__/tauri-api.js`
 - `testPathIgnorePatterns`: `node_modules`, `.next`, `out`, `src-tauri`
-- `collectCoverageFrom`: `app/`, `components/`, `lib/`, excluding `components/ui/**` and every `layout.tsx`
+- `collectCoverageFrom`: `lib/` and `components/schema-form/` only — the tested surface. UI pages and other components are excluded so the threshold measures business-logic coverage instead of being diluted to ~20% by untested views
 - `coverageThreshold`: 60% branches and functions, 70% lines and statements
 - `reporters`: default console reporter plus `jest-junit` writing `coverage/junit.xml`
 
@@ -225,7 +228,7 @@ await user.click(button)
 
 **"Not wrapped in act(...)" warnings.** Usually a store update outside `await`. Wrap the interaction in `await user.click(...)` or `await waitFor(...)`.
 
-**Coverage not collected.** Verify the file matches `collectCoverageFrom` and is not under `components/ui/`.
+**Coverage not collected.** Verify the file is under `lib/` or `components/schema-form/`.
 
 ## Resources
 

@@ -7,6 +7,7 @@ describe("角色路由与导航", () => {
       "收件箱",
       "比赛入口",
       "比赛管理",
+      "评委管理",
     ])
     expect(NAV_BY_ROLE.approver.map((item) => item.label)).toEqual([
       "我的账号",
@@ -27,8 +28,10 @@ describe("角色路由与导航", () => {
   it("管理员可以访问管理相关路由，学生不可以", () => {
     expect(canAccess("admin", "/manage")).toBe(true)
     expect(canAccess("admin", "/manage/create")).toBe(true)
+    expect(canAccess("admin", "/manage/judge")).toBe(true)
     expect(canAccess("admin", "/activity/manage/edit")).toBe(true)
     expect(canAccess("user", "/manage")).toBe(false)
+    expect(canAccess("judge", "/manage/judge")).toBe(false)
     expect(canAccess("user", "/activity/manage")).toBe(false)
   })
 

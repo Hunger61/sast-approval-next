@@ -41,7 +41,7 @@ pnpm format:check     # Check formatting without writing
 pnpm typecheck        # TypeScript --noEmit
 
 # Testing
-pnpm test             # Run Jest tests (11 suites / 68 tests)
+pnpm test             # Run Jest tests (14 suites / 89 tests)
 pnpm test:watch       # Run tests in watch mode
 pnpm test:coverage    # Run tests with coverage report
 

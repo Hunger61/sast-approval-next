@@ -15,6 +15,7 @@ export const NAV_BY_ROLE: Record<Exclude<UserRole, "offline">, NavItem[]> = {
     { href: "/inbox", label: "收件箱", icon: "inbox", badge: "inbox" },
     { href: "/activity", label: "比赛入口", icon: "send" },
     { href: "/manage", label: "比赛管理", icon: "settings" },
+    { href: "/manage/judge", label: "评委管理", icon: "users" },
   ],
   approver: [
     { href: "/account", label: "我的账号", icon: "dashboard" },
@@ -50,6 +51,7 @@ const ROUTES_BY_ROLE: Record<Exclude<UserRole, "offline">, string[]> = {
     "/activity/notice",
     "/manage",
     "/manage/create",
+    "/manage/judge",
   ],
   approver: [
     "/",
@@ -106,6 +108,7 @@ export function breadcrumbNameMap(role: UserRole): Record<string, string> {
     "/inbox": "收件箱",
     "/manage": "比赛管理",
     "/manage/create": "创建比赛",
+    "/manage/judge": "评委管理",
     "/account": "我的账号",
     "/review": reviewValue,
     "/review/list": "项目列表",

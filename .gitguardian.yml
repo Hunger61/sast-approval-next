@@ -1,0 +1,11 @@
+# GitGuardian 密钥扫描排除规则
+#
+# 测试文件里会故意放置假凭据（例如 endpoints.test.ts 中断言接口透传的假密码字段），
+# 它们是测试数据，不是真实密钥，不应触发 GitGuardian 误报。
+version: 2
+
+secret:
+  ignored-paths:
+    - "**/__tests__/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"

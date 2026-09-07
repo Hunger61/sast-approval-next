@@ -395,7 +395,7 @@ function ManageDetailContent() {
         <aside className="lg:order-2 lg:border-s lg:ps-10">
           <Section
             title="评委分配"
-            description="先下载参赛信息表，在表中填写每个项目的评委学号后再导入。"
+            description="先下载评委模板，在表中填写每个项目的评委学号后再导入。"
           >
             <div className="space-y-4">
               <Button
@@ -411,7 +411,7 @@ function ManageDetailContent() {
                 }
               >
                 <DownloadIcon className="size-4" />
-                下载参赛信息表
+                下载评委模板
               </Button>
               <FileDropzone
                 value={fileList}

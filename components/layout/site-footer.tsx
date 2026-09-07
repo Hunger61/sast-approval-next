@@ -16,7 +16,7 @@ export function SiteFooter() {
         <span>通用比赛管理评审系统 v3.0</span>
       </div>
       <p className="text-center">
-        1992 – 2025 SAST ·{" "}
+        1992 – 2026 SAST ·{" "}
         <a
           className="hover:text-primary underline underline-offset-4"
           href="https://github.com/NJUPT-SAST"
