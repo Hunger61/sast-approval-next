@@ -22,6 +22,10 @@ const config: Config = {
   // Narrowed to the actually-tested surface: business logic under lib/ plus the
   // schema-form engine. UI pages and components are not unit-tested, so including
   // them dilutes the metric to a meaningless ~20% and makes the threshold unreachable.
+  //
+  // 这条边界是有代价的：页面里的逻辑不在统计范围内，也就不会有人发现它没测。
+  // 所以页面里的纯逻辑（字段校验、数据整理等）请放进 lib/ 再由页面调用，
+  // 例如 lib/validation.ts 的 validateJudgeForm()，这样它才会被覆盖率门槛管住。
   collectCoverageFrom: [
     "lib/**/*.{js,jsx,ts,tsx}",
     "components/schema-form/**/*.{js,jsx,ts,tsx}",

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { NAV_ICONS } from "@/components/layout/nav-icons"
-import { NAV_BY_ROLE } from "@/lib/navigation"
+import { NAV_BY_ROLE, activeNavHref } from "@/lib/navigation"
 import { ROLE_LABEL, useUserStore, type UserRole } from "@/lib/store/user"
 
 export function AppSidebar({ onLogout }: { onLogout: () => void }) {
@@ -41,10 +41,7 @@ export function AppSidebar({ onLogout }: { onLogout: () => void }) {
   if (role === "offline") return null
   const items = NAV_BY_ROLE[role as Exclude<UserRole, "offline">]
 
-  const isActive = (href: string) =>
-    href === "/account"
-      ? pathname === "/" || pathname === "/account"
-      : pathname === href || pathname.startsWith(`${href}/`)
+  const activeHref = activeNavHref(role, pathname)
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -71,7 +68,7 @@ export function AppSidebar({ onLogout }: { onLogout: () => void }) {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={isActive(item.href)}
+                      isActive={item.href === activeHref}
                       tooltip={item.label}
                       className="h-9 data-[active=true]:font-medium"
                       onClick={() => isMobile && setOpenMobile(false)}

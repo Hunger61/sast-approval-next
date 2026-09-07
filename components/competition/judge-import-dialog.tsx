@@ -12,6 +12,14 @@ import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,10 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PageContainer, PageHeader } from "@/components/common/page-header"
-import { Section, SectionList } from "@/components/common/section"
 import { TableSurface } from "@/components/common/data-list"
-import { EmptyState } from "@/components/common/states"
 import { FileDropzone } from "@/components/common/file-dropzone"
 import { ImportCheckAlerts } from "@/components/common/import-check-alerts"
 import { importAccountsFromExcel } from "@/lib/api/judge"
@@ -37,20 +42,33 @@ import {
 import {
   MAX_IMPORT_ROWS,
   REQUIRED_COLUMNS,
-  type ImportCheckResult,
   checkAccountWorkbook,
+  type ImportCheckResult,
 } from "@/lib/import-accounts"
 
-export default function ImportPage() {
+/**
+ * 导入评委账号弹窗：上传 Excel → 本地校验 → 导入 → 导出初始密码。
+ *
+ * 后端只在导入成功时返回一次初始密码，所以导入完成后不自动关闭弹窗：
+ * 密码留在这里，可以反复导出，直到管理员自己确认保存完毕。
+ */
+export function JudgeImportDialog({
+  open,
+  onOpenChange,
+  onImported,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onImported: () => void
+}) {
   const [fileList, setFileList] = React.useState<File[]>([])
   const [uploading, setUploading] = React.useState(false)
   const [checking, setChecking] = React.useState(false)
   const [check, setCheck] = React.useState<ImportCheckResult | null>(null)
-  const [data, setData] = React.useState<AccountRow[]>([])
+  const [created, setCreated] = React.useState<AccountRow[] | null>(null)
 
   const blocked = check === null || check.issues.length > 0 || check.rows.length === 0
 
-  /** 选完文件立刻在本地解析并逐行校验，不合格就不让提交 */
   const handleFileChange = async (files: File[]) => {
     setFileList(files)
     setCheck(null)
@@ -61,7 +79,7 @@ export default function ImportPage() {
       setCheck(result)
       if (result.issues.length > 0) {
         toast.error(`表格有 ${result.issues.length} 处问题`, {
-          description: "请按下方提示修改后重新上传",
+          description: "请按提示修改后重新上传",
         })
       } else {
         toast.success(`校验通过，共 ${result.rows.length} 条记录`)
@@ -87,14 +105,8 @@ export default function ImportPage() {
       toast.error("表格还在校验中，请稍候")
       return
     }
-    if (check.issues.length > 0) {
-      toast.error(`表格还有 ${check.issues.length} 处问题未修正`, {
-        description: "修好后重新上传即可导入",
-      })
-      return
-    }
-    if (check.rows.length === 0) {
-      toast.error("表格里没有可导入的数据")
+    if (check.issues.length > 0 || check.rows.length === 0) {
+      toast.error("表格校验未通过，请修正后重新上传")
       return
     }
     setUploading(true)
@@ -102,10 +114,10 @@ export default function ImportPage() {
       const res = await importAccountsFromExcel(fileList[0])
       if (res.data?.success === true) {
         const rows: AccountRow[] = res.data.data ?? []
-        setData(rows)
+        // 先把密码留在弹窗里，再尝试自动下载：即使下载被浏览器拦截也不会丢
+        setCreated(rows)
+        onImported()
         void downloadAccountPasswords(rows)
-        setFileList([])
-        setCheck(null)
         toast.success("😸 导入成功", { description: `共生成 ${rows.length} 个账号` })
       } else {
         toast.error("😭 导入失败", { description: res.data?.errMsg ?? "后端没有返回具体原因" })
@@ -118,23 +130,18 @@ export default function ImportPage() {
   }
 
   return (
-    <PageContainer size="narrow">
-      <PageHeader
-        title="一键导入"
-        description="从 Excel 表格批量创建评委账号，导入完成后自动导出账号与初始密码。"
-        actions={
-          <Button variant="outline" onClick={() => void downloadAccountTemplate()}>
-            <FileDownIcon className="size-4" />
-            下载模板
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>导入评委</DialogTitle>
+          <DialogDescription>
+            {created === null
+              ? `从 Excel 批量创建评委账号，第一行需为「${REQUIRED_COLUMNS.join("」「")}」，单次最多 ${MAX_IMPORT_ROWS} 条。`
+              : "以下是本次生成的账号与初始密码，关闭弹窗后将无法再次查看。"}
+          </DialogDescription>
+        </DialogHeader>
 
-      <SectionList className="mt-8">
-        <Section
-          title="1. 上传账号表格"
-          description={`表格第一行需为「${REQUIRED_COLUMNS.join("」「")}」，单次最多 ${MAX_IMPORT_ROWS} 条，可先下载模板后填写。`}
-        >
+        {created === null ? (
           <div className="space-y-4">
             <FileDropzone
               value={fileList}
@@ -154,56 +161,43 @@ export default function ImportPage() {
               </p>
             ) : null}
 
-            <ImportCheckAlerts check={check} />
+            <ImportCheckAlerts check={check} listClassName="max-h-48" />
 
-            <Button
-              onClick={handleUpload}
-              disabled={uploading || checking || fileList.length === 0 || blocked}
-              className="w-full sm:w-auto"
-            >
-              {uploading ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                <UploadIcon className="size-4" />
-              )}
-              开始导入
-            </Button>
-          </div>
-        </Section>
-
-        <Section
-          title="2. 生成的账号"
-          description="导入成功后会自动下载密码表，也可以在这里重新导出。"
-          actions={
-            data.length > 0 ? (
+            <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
-                size="sm"
-                onClick={() => void downloadAccountPasswords(data)}
+                onClick={() => void downloadAccountTemplate()}
               >
-                <DownloadIcon className="size-4" />
-                导出 Excel
+                <FileDownIcon className="size-4" />
+                下载模板
               </Button>
-            ) : null
-          }
-        >
+              <Button
+                type="button"
+                onClick={handleUpload}
+                disabled={uploading || checking || fileList.length === 0 || blocked}
+              >
+                {uploading ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <UploadIcon className="size-4" />
+                )}
+                开始导入
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
           <div className="space-y-4">
             <Alert variant="destructive">
               <TriangleAlertIcon />
               <AlertTitle>请及时保存账号数据</AlertTitle>
               <AlertDescription>
-                页面关闭后将无法再次下载历史数据，请务必妥善保管导出的密码表格。
+                初始密码只在这次导入时返回一次，关闭弹窗后无法再取回，请确认密码表格已经下载并妥善保管。
               </AlertDescription>
             </Alert>
 
-            {data.length === 0 ? (
-              <EmptyState
-                title="还没有导入记录"
-                description="上传表格并导入后，生成的账号会显示在这里。"
-                className="min-h-40 rounded-xl border border-dashed"
-              />
-            ) : (
-              <TableSurface>
+            <TableSurface>
+              <div className="max-h-64 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -212,7 +206,7 @@ export default function ImportPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.map((row, index) => (
+                    {created.map((row, index) => (
                       <TableRow key={`${row.code}-${index}`}>
                         <TableCell className="font-mono">{row.code}</TableCell>
                         <TableCell className="font-mono">{row.password}</TableCell>
@@ -220,11 +214,25 @@ export default function ImportPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </TableSurface>
-            )}
+              </div>
+            </TableSurface>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void downloadAccountPasswords(created)}
+              >
+                <DownloadIcon className="size-4" />
+                重新导出
+              </Button>
+              <Button type="button" onClick={() => onOpenChange(false)}>
+                我已保存，关闭
+              </Button>
+            </DialogFooter>
           </div>
-        </Section>
-      </SectionList>
-    </PageContainer>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

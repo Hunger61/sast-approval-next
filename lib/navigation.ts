@@ -94,6 +94,24 @@ export function isTopLevelPath(role: UserRole, pathname: string) {
   return NAV_BY_ROLE[role].some((item) => item.href === normalized)
 }
 
+/**
+ * 当前应该高亮的菜单项 href，没有匹配时返回 null。
+ *
+ * 菜单项之间可能存在前缀关系（`/manage` 与 `/manage/judge`），
+ * 只认匹配得最长的那一项，否则父子两项会同时高亮。
+ */
+export function activeNavHref(role: UserRole, pathname: string) {
+  if (role === "offline") return null
+  const normalized = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname
+  // 登录后的落地页重定向到 /account，根路径按「我的账号」高亮
+  if (normalized === "/") return "/account"
+  return NAV_BY_ROLE[role].reduce<string | null>((best, item) => {
+    const matched = normalized === item.href || normalized.startsWith(`${item.href}/`)
+    if (!matched) return best
+    return best === null || item.href.length > best.length ? item.href : best
+  }, null)
+}
+
 export function canAccess(role: UserRole, pathname: string) {
   if (role === "offline") return false
   const normalized = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname

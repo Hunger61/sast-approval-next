@@ -1,16 +1,13 @@
 "use client"
 
 import * as React from "react"
-import * as XLSX from "xlsx"
+import dynamic from "next/dynamic"
 import {
-  CircleCheckIcon,
-  FileDownIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
-  TriangleAlertIcon,
   UploadIcon,
   UserCogIcon,
 } from "lucide-react"
@@ -43,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -56,7 +52,6 @@ import {
 import { PageContainer, PageHeader } from "@/components/common/page-header"
 import { DataPagination } from "@/components/common/data-pagination"
 import { IndexBadge, MobileList, MobileListItem, TableSurface } from "@/components/common/data-list"
-import { FileDropzone } from "@/components/common/file-dropzone"
 import { EmptyState } from "@/components/common/states"
 import { useLoadState } from "@/lib/hooks/use-load-state"
 import {
@@ -65,17 +60,17 @@ import {
   editJudgeAccount,
   getJudgeAccountList,
 } from "@/lib/api/admin"
-import { importAccountsFromExcel } from "@/lib/api/judge"
-import { saveBlob } from "@/lib/file"
-import {
-  MAX_IMPORT_ROWS,
-  REQUIRED_COLUMNS,
-  checkAccountWorkbook,
-  formatIssue,
-  type ImportCheckResult,
-} from "@/lib/import-accounts"
-import { isPhone, isStudentCode, PHONE_MESSAGE, STUDENT_CODE_MESSAGE } from "@/lib/validation"
+import { validateJudgeForm } from "@/lib/validation"
 import type { JudgeAccount } from "@/lib/types/api"
+
+/**
+ * 导入弹窗会把 xlsx（约 1MB）与表格校验一起拉进来，而评委列表本身用不到，
+ * 按需加载，避免它进入 /manage/judge 的首屏 chunk。
+ */
+const JudgeImportDialog = dynamic(
+  () => import("@/components/competition/judge-import-dialog").then((mod) => mod.JudgeImportDialog),
+  { ssr: false }
+)
 
 /** 新增 / 编辑评委的表单弹窗，用 key 强制重挂载来重置表单，避免在 effect 里同步 setState */
 function JudgeFormDialog({
@@ -104,15 +99,7 @@ function JudgeFormDialog({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    const nextErrors: Record<string, string> = {}
-    if (!values.code.trim()) nextErrors.code = "请输入学号"
-    else if (!isStudentCode(values.code)) nextErrors.code = STUDENT_CODE_MESSAGE
-    if (!values.name.trim()) nextErrors.name = "请输入姓名"
-    if (!values.contact.trim()) nextErrors.contact = "请输入联系方式"
-    else if (!isPhone(values.contact)) nextErrors.contact = PHONE_MESSAGE
-    if (!isEdit && values.password.length < 6) nextErrors.password = "密码至少 6 位"
-    if (isEdit && values.password && values.password.length < 6)
-      nextErrors.password = "密码至少 6 位"
+    const nextErrors = validateJudgeForm(values, isEdit)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -138,8 +125,8 @@ function JudgeFormDialog({
       } else {
         toast.error("😭 保存失败", { description: res.data.errMsg ?? "请检查填写信息后重试" })
       }
-    } catch {
-      toast.error("😭 保存失败", { description: "网络异常，请稍后重试" })
+    } catch (error) {
+      notifyRequestError(error, "😭 保存失败", { description: "请稍后重试" })
     } finally {
       setSubmitting(false)
     }
@@ -237,211 +224,19 @@ function RowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36">
-        <DropdownMenuItem onClick={() => onEdit(account)}>
+        <DropdownMenuItem onSelect={() => requestAnimationFrame(() => onEdit(account))}>
           <PencilIcon className="size-4" />
           编辑
         </DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" onClick={() => onDelete(account)}>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={() => requestAnimationFrame(() => onDelete(account))}
+        >
           <Trash2Icon className="size-4" />
           删除
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-const FILE_TYPES = [
-  ".xlsx",
-  ".xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
-]
-
-/** 单个表格大小上限 */
-const MAX_FILE_SIZE = 5 * 1024 * 1024
-
-type AccountRow = { code: string; password: string }
-
-/** 生成账号导入模板 */
-function generateExcelFile() {
-  const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.aoa_to_sheet([["学号", "姓名", "联系方式"]])
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1")
-  const wbout = XLSX.write(workbook, { type: "array", bookType: "xlsx" })
-  saveBlob(new Blob([wbout], { type: "application/octet-stream" }), "template.xlsx")
-}
-
-/** 把返回的账号密码导出为 Excel */
-function downloadExcelFile(data: AccountRow[]) {
-  if (!data || data.length === 0) {
-    toast.error("没有可导出的数据")
-    return
-  }
-  const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.aoa_to_sheet([["账号", "密码"]])
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1")
-  data.forEach((row, index) => {
-    XLSX.utils.sheet_add_aoa(worksheet, [[row.code, row.password]], {
-      origin: `A${index + 2}`,
-    })
-  })
-  const excelBuffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" })
-  saveBlob(new Blob([excelBuffer], { type: "application/octet-stream" }), "password.xlsx")
-}
-
-/** 导入评委账号弹窗：上传 Excel → 本地校验 → 导入 → 自动导出初始密码 */
-function JudgeImportDialog({
-  open,
-  onOpenChange,
-  onImported,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onImported: () => void
-}) {
-  const [fileList, setFileList] = React.useState<File[]>([])
-  const [uploading, setUploading] = React.useState(false)
-  const [checking, setChecking] = React.useState(false)
-  const [check, setCheck] = React.useState<ImportCheckResult | null>(null)
-
-  const blocked = check === null || check.issues.length > 0 || check.rows.length === 0
-
-  const handleFileChange = async (files: File[]) => {
-    setFileList(files)
-    setCheck(null)
-    if (files.length === 0) return
-    setChecking(true)
-    try {
-      const result = checkAccountWorkbook(await files[0].arrayBuffer())
-      setCheck(result)
-      if (result.issues.length > 0) {
-        toast.error(`表格有 ${result.issues.length} 处问题`, {
-          description: "请按提示修改后重新上传",
-        })
-      } else {
-        toast.success(`校验通过，共 ${result.rows.length} 条记录`)
-      }
-    } catch {
-      setCheck({
-        rows: [],
-        issues: [{ message: "文件读取失败，请确认文件没有损坏后重试" }],
-        blankRows: 0,
-        total: 0,
-      })
-    } finally {
-      setChecking(false)
-    }
-  }
-
-  const handleUpload = async () => {
-    if (fileList.length === 0) {
-      toast.error("请先选择要导入的 Excel 文件")
-      return
-    }
-    if (check === null) {
-      toast.error("表格还在校验中，请稍候")
-      return
-    }
-    if (check.issues.length > 0 || check.rows.length === 0) {
-      toast.error("表格校验未通过，请修正后重新上传")
-      return
-    }
-    setUploading(true)
-    try {
-      const res = await importAccountsFromExcel(fileList[0])
-      if (res.data?.success === true) {
-        const rows: AccountRow[] = res.data.data ?? []
-        downloadExcelFile(rows)
-        toast.success("😸 导入成功", { description: `共生成 ${rows.length} 个账号` })
-        onImported()
-        onOpenChange(false)
-      } else {
-        toast.error("😭 导入失败", { description: res.data?.errMsg ?? "后端没有返回具体原因" })
-      }
-    } catch (error) {
-      notifyRequestError(error, "😭 导入失败", { description: "请稍后重试" })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>导入评委</DialogTitle>
-          <DialogDescription>
-            从 Excel 批量创建评委账号，第一行需为「{REQUIRED_COLUMNS.join("」「")}」，单次最多{" "}
-            {MAX_IMPORT_ROWS} 条。
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <FileDropzone
-            value={fileList}
-            onChange={handleFileChange}
-            accept={FILE_TYPES.join(",")}
-            maxSize={MAX_FILE_SIZE}
-            maxCount={1}
-            title="点击或拖拽上传账号表格"
-            hint="仅支持 xlsx、xls 格式的单个文件，选完会先在本地校验"
-            disabled={uploading || checking}
-          />
-
-          {checking ? (
-            <p className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Loader2Icon className="size-4 animate-spin" />
-              正在校验表格内容…
-            </p>
-          ) : null}
-
-          {check !== null && check.issues.length === 0 ? (
-            <Alert>
-              <CircleCheckIcon />
-              <AlertTitle>校验通过，可以导入</AlertTitle>
-              <AlertDescription>
-                共 {check.rows.length} 条记录
-                {check.blankRows > 0 ? `，已跳过 ${check.blankRows} 行空白` : ""}。
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {check !== null && check.issues.length > 0 ? (
-            <Alert variant="destructive">
-              <TriangleAlertIcon />
-              <AlertTitle>表格有 {check.issues.length} 处问题，修正后重新上传</AlertTitle>
-              <AlertDescription>
-                <ul className="max-h-48 list-disc space-y-1 overflow-y-auto pl-4">
-                  {check.issues.slice(0, 50).map((issue, index) => (
-                    <li key={`${issue.row ?? "file"}-${issue.column ?? ""}-${index}`}>
-                      {formatIssue(issue)}
-                    </li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={generateExcelFile}>
-              <FileDownIcon className="size-4" />
-              下载模板
-            </Button>
-            <Button
-              type="button"
-              onClick={handleUpload}
-              disabled={uploading || checking || fileList.length === 0 || blocked}
-            >
-              {uploading ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                <UploadIcon className="size-4" />
-              )}
-              开始导入
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -493,7 +288,9 @@ export default function ManageJudgePage() {
     setDialog((prev) => ({ open: true, editing: account, nonce: prev.nonce + 1 }))
   const openImport = () => setImportDialog((prev) => ({ open: true, nonce: prev.nonce + 1 }))
 
-  const submitDelete = async () => {
+  const submitDelete = async (event: React.MouseEvent) => {
+    // AlertDialogAction 默认点击即关闭，会让下面的 loading 态永远渲染不出来
+    event.preventDefault()
     if (!deleteTarget) return
     setDeleting(true)
     try {
@@ -505,8 +302,8 @@ export default function ManageJudgePage() {
       } else {
         toast.error("😭 删除失败", { description: res.data.errMsg ?? "请稍后重试" })
       }
-    } catch {
-      toast.error("😭 删除失败", { description: "网络异常，请稍后重试" })
+    } catch (error) {
+      notifyRequestError(error, "😭 删除失败", { description: "请稍后重试" })
     } finally {
       setDeleting(false)
     }
@@ -569,12 +366,10 @@ export default function ManageJudgePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((item) => (
+                  {records.map((item, index) => (
                     <TableRow key={item.code}>
                       <TableCell className="text-muted-foreground font-mono text-xs">
-                        {(pageState.pageNumber - 1) * pageState.pageSize +
-                          records.indexOf(item) +
-                          1}
+                        {(pageState.pageNumber - 1) * pageState.pageSize + index + 1}
                       </TableCell>
                       <TableCell className="font-mono text-sm">{item.code}</TableCell>
                       <TableCell>{item.name}</TableCell>
@@ -629,12 +424,15 @@ export default function ManageJudgePage() {
         onSaved={reload}
       />
 
-      <JudgeImportDialog
-        key={importDialog.nonce}
-        open={importDialog.open}
-        onOpenChange={(open) => setImportDialog((prev) => ({ ...prev, open }))}
-        onImported={reload}
-      />
+      {/* 只在打开时挂载，导入相关的 chunk 才会真正开始下载 */}
+      {importDialog.open ? (
+        <JudgeImportDialog
+          key={importDialog.nonce}
+          open
+          onOpenChange={(open) => setImportDialog((prev) => ({ ...prev, open }))}
+          onImported={reload}
+        />
+      ) : null}
 
       <AlertDialog
         open={deleteTarget !== null}
@@ -650,11 +448,7 @@ export default function ManageJudgePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={submitDelete}
-              disabled={deleting}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
+            <AlertDialogAction variant="destructive" onClick={submitDelete} disabled={deleting}>
               {deleting ? <Loader2Icon className="size-4 animate-spin" /> : null}确认删除
             </AlertDialogAction>
           </AlertDialogFooter>

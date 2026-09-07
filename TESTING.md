@@ -12,12 +12,12 @@ How tests are set up and run in `sast-approval-next`.
 
 ## Current state
 
-14 suites, 89 tests, all passing.
+14 suites, 95 tests, all passing.
 
 | Suite                                                   | Tests | Covers                                       |
 | ------------------------------------------------------- | ----- | -------------------------------------------- |
-| `lib/api/__tests__/endpoints.test.ts`                   | 19    | Method, URL and request body per endpoint    |
-| `lib/__tests__/navigation.test.ts`                      | 9     | Sidebar menus, route allow-list, breadcrumbs |
+| `lib/api/__tests__/endpoints.test.ts`                   | 20    | Method, URL and request body per endpoint    |
+| `lib/__tests__/navigation.test.ts`                      | 10    | Sidebar menus, route allow-list, breadcrumbs |
 | `components/schema-form/__tests__/schema-form.test.tsx` | 8     | Schema form engine                           |
 | `lib/__tests__/register-schema.test.ts`                 | 6     | Sign-up schema                               |
 | `lib/__tests__/form-templates.test.ts`                  | 5     | Form templates                               |
@@ -29,7 +29,7 @@ How tests are set up and run in `sast-approval-next`.
 | `lib/utils.test.ts`                                     | 2     | `cn()`                                       |
 | `lib/__tests__/import-accounts.test.ts`                 | 9     | Excel 账号导入逐行校验                       |
 | `lib/__tests__/api-errors.test.ts`                      | 6     | 网络层错误码 → 提示映射                      |
-| `lib/__tests__/validation.test.ts`                      | 5     | 表单字段校验                                 |
+| `lib/__tests__/validation.test.ts`                      | 10    | 表单字段校验、评委表单校验                   |
 
 ## Running Tests
 

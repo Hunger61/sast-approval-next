@@ -33,7 +33,7 @@ Next.js 16 (React 19) + Tauri 2.11 + TypeScript + Tailwind CSS v4 + shadcn/ui + 
 ```bash
 # Frontend (main app, port 3000)
 pnpm dev              # Start Next.js dev server
-pnpm build            # Build for production (outputs to out/, 19 routes)
+pnpm build            # Build for production (outputs to out/, 20 routes)
 pnpm lint             # Run ESLint
 pnpm lint:fix         # Auto-fix ESLint issues
 pnpm format           # Format with Prettier
@@ -41,7 +41,7 @@ pnpm format:check     # Check formatting without writing
 pnpm typecheck        # TypeScript --noEmit
 
 # Testing
-pnpm test             # Run Jest tests (14 suites / 89 tests)
+pnpm test             # Run Jest tests (14 suites / 95 tests)
 pnpm test:watch       # Run tests in watch mode
 pnpm test:coverage    # Run tests with coverage report
 
@@ -93,6 +93,7 @@ app/                       路由（全部为客户端页面，静态导出）
       white-list/          编辑白名单
   manage/                  比赛管理列表（管理员）
     create/                创建比赛
+    judge/                 评委账号管理（管理员）
   review/                  评审 / 审核入口
     list/                  比赛项目列表
     detail/                项目评审 / 审核
@@ -116,7 +117,7 @@ lib/
   store/                   Zustand：user（登录态）、ui（面包屑动态标题）
   constants/               表单模板、学院列表、报名 schema、站内信
   types/                   接口与业务类型
-  hooks/                   use-load-state（请求键驱动的加载状态）、use-logout
+  hooks/                   use-load-state（请求键驱动的加载状态）、use-logout、use-validate-code（登录验证码）
   navigation.ts            角色 → 菜单 / 路由白名单 / 面包屑
   storage.ts               localStorage 封装（键名与旧版兼容）
   file.ts / datetime.ts    下载、文件名、时间格式化

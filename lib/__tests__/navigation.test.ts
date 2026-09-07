@@ -1,4 +1,10 @@
-import { NAV_BY_ROLE, breadcrumbNameMap, canAccess, withQuery } from "@/lib/navigation"
+import {
+  NAV_BY_ROLE,
+  breadcrumbNameMap,
+  canAccess,
+  withQuery,
+  activeNavHref,
+} from "@/lib/navigation"
 
 describe("角色路由与导航", () => {
   it("各角色的侧边栏与旧版菜单一一对应", () => {
@@ -71,5 +77,17 @@ describe("角色路由与导航", () => {
       "/activity/notice?id=3"
     )
     expect(withQuery("/activity", {})).toBe("/activity")
+  })
+
+  it("菜单项互为前缀时只高亮匹配最长的那一项", () => {
+    // /manage 是 /manage/judge 的前缀，两项不能同时亮
+    expect(activeNavHref("admin", "/manage/judge")).toBe("/manage/judge")
+    expect(activeNavHref("admin", "/manage/create")).toBe("/manage")
+    expect(activeNavHref("admin", "/manage")).toBe("/manage")
+    expect(activeNavHref("admin", "/activity/detail")).toBe("/activity")
+    // 登录后的落地页与未匹配的路径
+    expect(activeNavHref("admin", "/")).toBe("/account")
+    expect(activeNavHref("user", "/manage/judge")).toBeNull()
+    expect(activeNavHref("offline", "/manage")).toBeNull()
   })
 })
