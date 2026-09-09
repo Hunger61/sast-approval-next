@@ -92,7 +92,10 @@ export type AccountManagerProps = {
   description: string
   entity: string
   emptyIcon: React.ComponentType<{ className?: string }>
-  listAccounts: (pageNum: number, pageSize: number) => Promise<ApiResult<{ records: AccountRecord[]; total: number }>>
+  listAccounts: (
+    pageNum: number,
+    pageSize: number
+  ) => Promise<ApiResult<{ records: AccountRecord[]; total: number }>>
   createAccount: (data: AccountRecord & { password: string }) => Promise<ApiResult>
   editAccount: (data: AccountRecord & { password?: string }) => Promise<ApiResult>
   deleteAccount: (code: string) => Promise<ApiResult>
@@ -139,7 +142,8 @@ function AccountFormDialog({
     if (!values.contact.trim()) nextErrors.contact = "请输入联系方式"
     else if (!isPhone(values.contact)) nextErrors.contact = PHONE_MESSAGE
     if (!isEdit && values.password.length < 6) nextErrors.password = "密码至少 6 位"
-    if (isEdit && values.password && values.password.length < 6) nextErrors.password = "密码至少 6 位"
+    if (isEdit && values.password && values.password.length < 6)
+      nextErrors.password = "密码至少 6 位"
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -283,7 +287,9 @@ function RowMenu({
 /** 生成账号导入模板 */
 function generateExcelFile(entity: string) {
   const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.aoa_to_sheet([[REQUIRED_COLUMNS[0], REQUIRED_COLUMNS[1], REQUIRED_COLUMNS[2]]])
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    [REQUIRED_COLUMNS[0], REQUIRED_COLUMNS[1], REQUIRED_COLUMNS[2]],
+  ])
   XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1")
   const wbout = XLSX.write(workbook, { type: "array", bookType: "xlsx" })
   saveBlob(new Blob([wbout], { type: "application/octet-stream" }), `${entity}导入模板.xlsx`)
@@ -509,7 +515,9 @@ export default function AccountManager({
       .catch((error) => {
         if (!cancelled) {
           setRecords([])
-          notifyRequestError(error, "😭 请求失败", { description: `${entity}列表加载失败，请稍后重试` })
+          notifyRequestError(error, "😭 请求失败", {
+            description: `${entity}列表加载失败，请稍后重试`,
+          })
         }
       })
       .finally(() => {
@@ -614,11 +622,7 @@ export default function AccountManager({
                       <TableCell>{item.name}</TableCell>
                       <TableCell className="font-mono text-sm">{item.contact || "—"}</TableCell>
                       <TableCell className="text-right">
-                        <RowMenu
-                          account={item}
-                          onEdit={openEdit}
-                          onDelete={setDeleteTarget}
-                        />
+                        <RowMenu account={item} onEdit={openEdit} onDelete={setDeleteTarget} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -643,13 +647,7 @@ export default function AccountManager({
                     </span>
                   }
                   meta={<span className="font-mono">{item.contact || "—"}</span>}
-                  trailing={
-                    <RowMenu
-                      account={item}
-                      onEdit={openEdit}
-                      onDelete={setDeleteTarget}
-                    />
-                  }
+                  trailing={<RowMenu account={item} onEdit={openEdit} onDelete={setDeleteTarget} />}
                 />
               ))}
             </MobileList>
@@ -693,7 +691,8 @@ export default function AccountManager({
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除该{entity}？</AlertDialogTitle>
             <AlertDialogDescription>
-              删除「{deleteTarget?.name}（{deleteTarget?.code}）」后，该账号将无法登录系统，请谨慎操作。
+              删除「{deleteTarget?.name}（{deleteTarget?.code}
+              ）」后，该账号将无法登录系统，请谨慎操作。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

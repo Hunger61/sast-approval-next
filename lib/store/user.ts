@@ -25,9 +25,9 @@ export function roleNumberToState(role: number): UserRole {
     case 0:
       return "user"
     case 1:
-      return "approver"  // 审批审核人员
+      return "approver" // 审批审核人员
     case 2:
-      return "judge"     // 评委
+      return "judge" // 评委
     case 3:
       return "admin"
     default:
@@ -46,9 +46,9 @@ export function roleStateToNumber(role: UserRole): number {
       return 3
     case "user":
       return 0
-    case "approver":  // 审批审核人员
+    case "approver": // 审批审核人员
       return 1
-    case "judge":    // 评委
+    case "judge": // 评委
       return 2
     default:
       return 0
