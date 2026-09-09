@@ -1,10 +1,15 @@
 "use client"
 
 import { UserCogIcon } from "lucide-react"
-import AccountManager, type { AccountRecord } from "@/components/manage/account-manager"
-import { assignJudge } from "@/lib/api/admin"
+import AccountManager from "@/components/manage/account-manager"
 import type { AccountManagerProps } from "@/components/manage/account-manager"
-import { createJudgeAccount, deleteJudgeAccount, editJudgeAccount, getJudgeAccountList } from "@/lib/api/admin"
+import {
+  assignJudge,
+  createJudgeAccount,
+  deleteJudgeAccount,
+  editJudgeAccount,
+  getJudgeAccountList,
+} from "@/lib/api/admin"
 
 export default function ManageJudgePage() {
   const managerProps: AccountManagerProps = {

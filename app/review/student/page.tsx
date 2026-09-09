@@ -1,9 +1,9 @@
 "use client"
 
 import { UserRoundIcon } from "lucide-react"
-import { importAccountsFromExcel } from "@/lib/api/judge"
-import AccountManager, type { AccountRecord } from "@/components/manage/account-manager"
+import AccountManager from "@/components/manage/account-manager"
 import type { AccountManagerProps } from "@/components/manage/account-manager"
+import { importAccountsFromExcel } from "@/lib/api/judge"
 
 export default function ReviewStudentPage() {
   const managerProps: AccountManagerProps = {
@@ -15,11 +15,7 @@ export default function ReviewStudentPage() {
     createAccount: async () => Promise.resolve({ data: { success: true } }),
     editAccount: async () => Promise.resolve({ data: { success: true } }),
     deleteAccount: async () => Promise.resolve({ data: { success: true } }),
-    importAccount: async (file) => {
-      const formData = new FormData()
-      formData.append("file", file)
-      return importAccountsFromExcel(formData)
-    },
+    importAccount: importAccountsFromExcel,
   }
 
   return <AccountManager {...managerProps} />

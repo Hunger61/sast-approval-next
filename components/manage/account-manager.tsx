@@ -79,16 +79,24 @@ export type AccountRow = {
   password: string
 }
 
+type ApiResult<T = unknown> = {
+  data: {
+    success: boolean
+    data?: T
+    errMsg?: string
+  }
+}
+
 export type AccountManagerProps = {
   title: string
   description: string
   entity: string
   emptyIcon: React.ComponentType<{ className?: string }>
-  listAccounts: (pageNum: number, pageSize: number) => Promise<unknown>
-  createAccount: (data: AccountRecord & { password: string }) => Promise<unknown>
-  editAccount: (data: AccountRecord & { password?: string }) => Promise<unknown>
-  deleteAccount: (code: string) => Promise<unknown>
-  importAccount: (file: File) => Promise<unknown>
+  listAccounts: (pageNum: number, pageSize: number) => Promise<ApiResult<{ records: AccountRecord[]; total: number }>>
+  createAccount: (data: AccountRecord & { password: string }) => Promise<ApiResult>
+  editAccount: (data: AccountRecord & { password?: string }) => Promise<ApiResult>
+  deleteAccount: (code: string) => Promise<ApiResult>
+  importAccount: (file: File) => Promise<ApiResult<AccountRow[]>>
 }
 
 /** 共用的新增 / 编辑账号表单弹窗 */
@@ -98,12 +106,16 @@ function AccountFormDialog({
   editing,
   onOpenChange,
   onSaved,
+  createAccount,
+  editAccount,
 }: {
   entity: string
   open: boolean
   editing: AccountRecord | null
   onOpenChange: (open: boolean) => void
   onSaved: () => void
+  createAccount: (data: AccountRecord & { password: string }) => Promise<ApiResult>
+  editAccount: (data: AccountRecord & { password?: string }) => Promise<ApiResult>
 }) {
   const isEdit = editing !== null
   const [values, setValues] = React.useState({
@@ -159,11 +171,6 @@ function AccountFormDialog({
       setSubmitting(false)
     }
   }
-
-  // 注意：createAccount 和 editAccount 是 props，需要在 handleSubmit 内部使用
-  // 为了避免闭包问题，这里需要重新获取 props 的最新值
-  const createAccount = props.createAccount
-  const editAccount = props.editAccount
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -364,14 +371,15 @@ function AccountImportDialog({
     setUploading(true)
     try {
       const res = await importAccount(fileList[0])
-      if (res.data?.success === true) {
-        const rows: AccountRow[] = res.data.data ?? []
+      const result = res as ApiResult<AccountRow[]>
+      if (result.data?.success === true) {
+        const rows: AccountRow[] = result.data.data ?? []
         downloadExcelFile(rows, entity)
         toast.success("😸 导入成功", { description: `共生成 ${rows.length} 个账号` })
         onImported()
         onOpenChange(false)
       } else {
-        toast.error("😭 导入失败", { description: res.data?.errMsg ?? "后端没有返回具体原因" })
+        toast.error("😭 导入失败", { description: result.data?.errMsg ?? "后端没有返回具体原因" })
       }
     } catch (error) {
       notifyRequestError(error, "😭 导入失败", { description: "请稍后重试" })
