@@ -4,7 +4,7 @@ import { create } from "zustand"
 import { STORAGE_KEYS, clearStorage, readStorage, writeStorage } from "@/lib/storage"
 import type { UserProfile } from "@/lib/types/api"
 
-/** 用户角色：未登录 / 学生 / 审核(judge) / 评委(approver) / 管理员 */
+/** 用户角色：未登录 / 学生 / 评委(judge) / 审批审核人员(approver) / 管理员 */
 export type UserRole = "offline" | "user" | "judge" | "approver" | "admin"
 
 const EMPTY_PROFILE: UserProfile = {
@@ -15,15 +15,19 @@ const EMPTY_PROFILE: UserProfile = {
   contact: "",
 }
 
-/** 后端 role 数字 -> 前端角色字符串（与旧版一致） */
+/** 后端 role 数字 -> 前端角色字符串（与旧版一致）
+ * 0: 学生参赛者
+ * 1: 审批审核人员（可管理学生）
+ * 2: 评委（仅评审，无管理权限）
+ * 3: 系统管理员（全权限） */
 export function roleNumberToState(role: number): UserRole {
   switch (role) {
     case 0:
       return "user"
     case 1:
-      return "judge"
+      return "approver"  // 审批审核人员
     case 2:
-      return "approver"
+      return "judge"     // 评委
     case 3:
       return "admin"
     default:
@@ -31,16 +35,20 @@ export function roleNumberToState(role: number): UserRole {
   }
 }
 
-/** 角色字符串 -> 后端 role 数字 */
+/** 角色字符串 -> 后端 role 数字
+ * admin: 3 - 系统管理员（全权限）
+ * user: 0 - 学生参赛者
+ * approver: 1 - 审批审核人员（可管理学生）
+ * judge: 2 - 评委（仅评审，无管理权限） */
 export function roleStateToNumber(role: UserRole): number {
   switch (role) {
     case "admin":
       return 3
     case "user":
       return 0
-    case "judge":
+    case "approver":  // 审批审核人员
       return 1
-    case "approver":
+    case "judge":    // 评委
       return 2
     default:
       return 0
@@ -50,8 +58,8 @@ export function roleStateToNumber(role: UserRole): number {
 export const ROLE_LABEL: Record<UserRole, string> = {
   offline: "未登录",
   user: "参赛选手",
-  judge: "审核人员",
-  approver: "评审专家",
+  judge: "评委",
+  approver: "审批审核人员",
   admin: "系统管理员",
 }
 

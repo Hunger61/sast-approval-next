@@ -1,6 +1,7 @@
 import {
   ClipboardCheckIcon,
   FileUpIcon,
+  GraduationCapIcon,
   InboxIcon,
   SettingsIcon,
   TrophyIcon,
@@ -17,4 +18,5 @@ export const NAV_ICONS: Record<string, React.ComponentType<{ className?: string 
   clipboard: ClipboardCheckIcon,
   import: FileUpIcon,
   users: UserCogIcon,
+  students: GraduationCapIcon,
 }

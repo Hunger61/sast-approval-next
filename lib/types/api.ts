@@ -111,6 +111,13 @@ export interface JudgeAccount {
   contact: string // 联系方式
 }
 
+/** 学生账号（管理端列表条目） */
+export interface StudentAccount {
+  code: string // 学号
+  name: string // 姓名
+  contact: string // 联系方式
+}
+
 /** 公告 */
 export interface CompetitionNoticeItem {
   id: number

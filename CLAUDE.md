@@ -94,6 +94,7 @@ app/                       路由（全部为客户端页面，静态导出）
   manage/                  比赛管理列表（管理员）
     create/                创建比赛
     judge/                 评委账号管理（管理员）
+    student/               学生账号管理（管理员）
   review/                  评审 / 审核入口
     list/                  比赛项目列表
     detail/                项目评审 / 审核
@@ -107,6 +108,7 @@ components/
                            日期时间选择、文件拖拽、步骤条
   competition/             比赛卡片与表单、封面上传、时间区间、评委分配、白名单、公告
   schema-form/             轻量 JSON-Schema 表单引擎（替代旧版 form-render）
+  manage/                  共享账号管理组件（复用 CRUD 与导入逻辑）
   ui/                      56 个 shadcn/ui 组件（**不要在此写测试**）
 
 hooks/use-mobile.ts        断点判断，供 components/ui/sidebar 使用

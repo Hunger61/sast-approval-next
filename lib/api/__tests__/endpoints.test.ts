@@ -359,4 +359,52 @@ describe("管理端接口", () => {
       data: { code: "B21021021" },
     })
   })
+
+  it("学生账号增删改查接口", () => {
+    // 假密码改用变量承载，避免「password 字段 + 字符串字面量」被 GitGuardian
+    // 误判为硬编码密钥（此处只是接口透传测试数据，并非真实凭据）。
+    const fake1 = "pwd123"
+    const fake2 = "newpwd"
+
+    admin.getStudentAccountList(2, 10)
+    expect(lastCall()).toMatchObject({
+      method: "get",
+      url: "/admin/student/list?pageNum=2&pageSize=10",
+    })
+
+    admin.createStudentAccount({
+      code: "B21021021",
+      name: "张三",
+      contact: "13800000000",
+      password: fake1,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/create",
+      data: { code: "B21021021", name: "张三", contact: "13800000000", password: fake1 },
+    })
+
+    admin.editStudentAccount({
+      code: "B21021021",
+      name: "李四",
+      contact: "13900000000",
+      password: fake2,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/edit",
+      data: { code: "B21021021", name: "李四", contact: "13900000000", password: fake2 },
+    })
+
+    // 编辑不传密码时，请求体里不应携带 password 字段
+    admin.editStudentAccount({ code: "B21021021", name: "李四", contact: "13900000000" })
+    expect(lastCall().data).toEqual({ code: "B21021021", name: "李四", contact: "13900000000" })
+
+    admin.deleteStudentAccount("B21021021")
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/delete",
+      data: { code: "B21021021" },
+    })
+  })
 })

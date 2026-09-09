@@ -207,6 +207,68 @@ export const deleteJudgeAccount = (code: string) => {
 }
 
 /**
+ * 获取学生账号列表（分页）
+ * @param pageNum 页码，从 1 开始
+ * @param pageSize 每页条数
+ * @return axios对象
+ */
+export const getStudentAccountList = (pageNum: number, pageSize: number) => {
+  return apis({
+    method: "get",
+    url: "/admin/student/list?pageNum=" + pageNum + "&pageSize=" + pageSize,
+  })
+}
+
+/**
+ * 新增单个学生账号（不依赖 Excel 导入）
+ * @param data 学号 / 姓名 / 联系方式 / 初始密码
+ * @return axios对象
+ */
+export const createStudentAccount = (data: {
+  code: string
+  name: string
+  contact: string
+  password: string
+}) => {
+  return apis({
+    method: "POST",
+    url: "/admin/student/create",
+    data: data,
+  })
+}
+
+/**
+ * 编辑学生账号（学号作为唯一标识，不可修改；密码留空表示不重置）
+ * @param data 学号 / 姓名 / 联系方式 / 新密码（可选）
+ * @return axios对象
+ */
+export const editStudentAccount = (data: {
+  code: string
+  name: string
+  contact: string
+  password?: string
+}) => {
+  return apis({
+    method: "POST",
+    url: "/admin/student/edit",
+    data: data,
+  })
+}
+
+/**
+ * 删除学生账号
+ * @param code 学号
+ * @return axios对象
+ */
+export const deleteStudentAccount = (code: string) => {
+  return apis({
+    method: "POST",
+    url: "/admin/student/delete",
+    data: { code },
+  })
+}
+
+/**
  * 导出评审结果
  * @param competitionId 比赛 id
  * @return axios对象
