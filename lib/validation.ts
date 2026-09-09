@@ -24,3 +24,40 @@ export function isStudentCode(value: string) {
 export function isPhone(value: string) {
   return PHONE_PATTERN.test(value.trim())
 }
+
+/** 评委账号的初始密码 / 重置密码最短长度 */
+export const MIN_PASSWORD_LENGTH = 6
+
+export const PASSWORD_MESSAGE = `密码至少 ${MIN_PASSWORD_LENGTH} 位`
+
+export type JudgeFormValues = {
+  code: string
+  name: string
+  contact: string
+  password: string
+}
+
+/**
+ * 新增 / 编辑评委表单的字段校验。
+ * 纯函数，返回 `字段名 → 错误文案`，没有问题时返回空对象。
+ *
+ * 编辑时学号不可改、密码留空表示不重置，所以只在填了密码时才校验长度。
+ */
+export function validateJudgeForm(values: JudgeFormValues, isEdit: boolean) {
+  const errors: Record<string, string> = {}
+
+  if (!values.code.trim()) errors.code = "请输入学号"
+  else if (!isStudentCode(values.code)) errors.code = STUDENT_CODE_MESSAGE
+
+  if (!values.name.trim()) errors.name = "请输入姓名"
+
+  if (!values.contact.trim()) errors.contact = "请输入联系方式"
+  else if (!isPhone(values.contact)) errors.contact = PHONE_MESSAGE
+
+  const passwordRequired = !isEdit || values.password !== ""
+  if (passwordRequired && values.password.length < MIN_PASSWORD_LENGTH) {
+    errors.password = PASSWORD_MESSAGE
+  }
+
+  return errors
+}

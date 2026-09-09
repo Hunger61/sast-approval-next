@@ -1,4 +1,10 @@
-import { NAV_BY_ROLE, breadcrumbNameMap, canAccess, withQuery } from "@/lib/navigation"
+import {
+  NAV_BY_ROLE,
+  breadcrumbNameMap,
+  canAccess,
+  withQuery,
+  activeNavHref,
+} from "@/lib/navigation"
 
 describe("角色路由与导航", () => {
   it("各角色的侧边栏与旧版菜单一一对应", () => {
@@ -7,28 +13,35 @@ describe("角色路由与导航", () => {
       "收件箱",
       "比赛入口",
       "比赛管理",
+      "评委管理",
+      "学生管理",
     ])
     expect(NAV_BY_ROLE.approver.map((item) => item.label)).toEqual([
       "我的账号",
       "收件箱",
       "比赛入口",
-      "比赛评审",
+      "比赛审批",
+      "学生管理",
     ])
     expect(NAV_BY_ROLE.judge.map((item) => item.label)).toEqual([
       "我的账号",
       "收件箱",
       "比赛入口",
-      "比赛审核",
+      "比赛评审",
       "一键导入",
     ])
     expect(NAV_BY_ROLE.user.map((item) => item.label)).toEqual(["我的账号", "收件箱", "比赛入口"])
   })
 
-  it("管理员可以访问管理相关路由，学生不可以", () => {
+  it("管理员可以访问管理相关路由，审批人可以访问学生管理", () => {
     expect(canAccess("admin", "/manage")).toBe(true)
     expect(canAccess("admin", "/manage/create")).toBe(true)
+    expect(canAccess("admin", "/manage/judge")).toBe(true)
+    expect(canAccess("admin", "/manage/student")).toBe(true)
     expect(canAccess("admin", "/activity/manage/edit")).toBe(true)
+    expect(canAccess("approver", "/review/student")).toBe(true)
     expect(canAccess("user", "/manage")).toBe(false)
+    expect(canAccess("judge", "/manage/judge")).toBe(false)
     expect(canAccess("user", "/activity/manage")).toBe(false)
   })
 
@@ -68,5 +81,17 @@ describe("角色路由与导航", () => {
       "/activity/notice?id=3"
     )
     expect(withQuery("/activity", {})).toBe("/activity")
+  })
+
+  it("菜单项互为前缀时只高亮匹配最长的那一项", () => {
+    // /manage 是 /manage/judge 的前缀，两项不能同时亮
+    expect(activeNavHref("admin", "/manage/judge")).toBe("/manage/judge")
+    expect(activeNavHref("admin", "/manage/create")).toBe("/manage")
+    expect(activeNavHref("admin", "/manage")).toBe("/manage")
+    expect(activeNavHref("admin", "/activity/detail")).toBe("/activity")
+    // 登录后的落地页与未匹配的路径
+    expect(activeNavHref("admin", "/")).toBe("/account")
+    expect(activeNavHref("user", "/manage/judge")).toBeNull()
+    expect(activeNavHref("offline", "/manage")).toBeNull()
   })
 })

@@ -12,16 +12,16 @@ describe("用户状态", () => {
     })
   })
 
-  it("后端 role 与前端角色的映射与旧版一致", () => {
+  it("后端 role 与前端角色的映射与新版一致", () => {
     expect(roleNumberToState(0)).toBe("user")
-    expect(roleNumberToState(1)).toBe("judge")
-    expect(roleNumberToState(2)).toBe("approver")
+    expect(roleNumberToState(1)).toBe("approver") // 审批审核人员
+    expect(roleNumberToState(2)).toBe("judge") // 评委
     expect(roleNumberToState(3)).toBe("admin")
     expect(roleNumberToState(99)).toBe("offline")
 
     expect(roleStateToNumber("user")).toBe(0)
-    expect(roleStateToNumber("judge")).toBe(1)
-    expect(roleStateToNumber("approver")).toBe(2)
+    expect(roleStateToNumber("approver")).toBe(1) // 审批审核人员
+    expect(roleStateToNumber("judge")).toBe(2) // 评委
     expect(roleStateToNumber("admin")).toBe(3)
   })
 

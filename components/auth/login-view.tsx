@@ -13,55 +13,16 @@ import {
   UserIcon,
 } from "lucide-react"
 import { toast } from "sonner"
-import { notifyRequestError } from "@/lib/api/errors"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
-import { getValidateCode, login } from "@/lib/api/public"
+import { login } from "@/lib/api/public"
 import { getUserProfile } from "@/lib/api/user"
+import { useValidateCode } from "@/lib/hooks/use-validate-code"
 import { STORAGE_KEYS, writeStorage } from "@/lib/storage"
 import { roleNumberToState, useUserStore } from "@/lib/store/user"
 import { identifyUser } from "@/lib/monitoring"
-
-/** 拉取验证码图片，返回 objectURL 与 captcha uuid */
-function useValidateCode() {
-  const [imageUrl, setImageUrl] = React.useState<string>()
-  const [captchaId, setCaptchaId] = React.useState("")
-  const [nonce, setNonce] = React.useState(0)
-  const [loadedNonce, setLoadedNonce] = React.useState(-1)
-  const loading = loadedNonce !== nonce
-
-  React.useEffect(() => {
-    let revoked: string | undefined
-    let cancelled = false
-    getValidateCode()
-      .then((res) => {
-        if (cancelled) return
-        const url = window.URL.createObjectURL(res.data as Blob)
-        revoked = url
-        setImageUrl(url)
-        setCaptchaId(String(res.headers["captcha"] ?? ""))
-      })
-      .catch((error) => {
-        if (!cancelled) notifyRequestError(error, "验证码加载失败，请点击图片重试")
-      })
-      .finally(() => {
-        if (!cancelled) setLoadedNonce(nonce)
-      })
-    return () => {
-      cancelled = true
-      if (revoked) window.URL.revokeObjectURL(revoked)
-    }
-  }, [nonce])
-
-  return {
-    imageUrl,
-    captchaId,
-    loading,
-    refresh: () => setNonce((value) => value + 1),
-  }
-}
 
 const HIGHLIGHTS = [
   { icon: SparklesIcon, title: "一站式赛事管理", desc: "创建、报名、提交、评审全流程闭环" },
@@ -177,7 +138,7 @@ export function LoginView() {
           </ul>
         </div>
         <p className="text-muted-foreground text-xs">
-          1992 - 2025 Students&apos; Association for Science and Technology ·{" "}
+          1992 - 2026 Students&apos; Association for Science and Technology ·{" "}
           <a
             className="hover:text-primary underline underline-offset-4"
             href="https://github.com/NJUPT-SAST"
@@ -265,7 +226,7 @@ export function LoginView() {
                   type="button"
                   onClick={refresh}
                   title="点击刷新验证码"
-                  className="bg-muted hover:border-primary/60 relative h-11 w-30 shrink-0 overflow-hidden rounded-md border transition-colors"
+                  className="bg-muted hover:border-primary/60 relative h-11 w-44 shrink-0 overflow-hidden rounded-md border transition-colors"
                 >
                   {captchaLoading ? (
                     <span className="text-muted-foreground flex h-full items-center justify-center">
@@ -276,7 +237,7 @@ export function LoginView() {
                     <img
                       src={imageUrl}
                       alt="验证码"
-                      className="h-full w-full bg-white object-cover"
+                      className="h-full w-full bg-white object-contain"
                     />
                   ) : (
                     <span className="text-muted-foreground flex h-full items-center justify-center gap-1 text-xs">
@@ -297,7 +258,7 @@ export function LoginView() {
           </form>
 
           <p className="text-muted-foreground mt-8 text-center text-xs lg:hidden">
-            1992 - 2025 SAST ·{" "}
+            1992 - 2026 SAST ·{" "}
             <a
               className="hover:text-primary underline underline-offset-4"
               href="https://github.com/NJUPT-SAST"

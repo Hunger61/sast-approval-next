@@ -15,18 +15,21 @@ export const NAV_BY_ROLE: Record<Exclude<UserRole, "offline">, NavItem[]> = {
     { href: "/inbox", label: "收件箱", icon: "inbox", badge: "inbox" },
     { href: "/activity", label: "比赛入口", icon: "send" },
     { href: "/manage", label: "比赛管理", icon: "settings" },
+    { href: "/manage/judge", label: "评委管理", icon: "users" },
+    { href: "/manage/student", label: "学生管理", icon: "students" },
   ],
   approver: [
     { href: "/account", label: "我的账号", icon: "dashboard" },
     { href: "/inbox", label: "收件箱", icon: "inbox", badge: "inbox" },
     { href: "/activity", label: "比赛入口", icon: "send" },
-    { href: "/review", label: "比赛评审", icon: "clipboard" },
+    { href: "/review", label: "比赛审批", icon: "clipboard" },
+    { href: "/review/student", label: "学生管理", icon: "students" },
   ],
   judge: [
     { href: "/account", label: "我的账号", icon: "dashboard" },
     { href: "/inbox", label: "收件箱", icon: "inbox", badge: "inbox" },
     { href: "/activity", label: "比赛入口", icon: "send" },
-    { href: "/review", label: "比赛审核", icon: "clipboard" },
+    { href: "/review", label: "比赛评审", icon: "clipboard" },
     { href: "/import", label: "一键导入", icon: "import" },
   ],
   user: [
@@ -50,6 +53,8 @@ const ROUTES_BY_ROLE: Record<Exclude<UserRole, "offline">, string[]> = {
     "/activity/notice",
     "/manage",
     "/manage/create",
+    "/manage/judge",
+    "/manage/student",
   ],
   approver: [
     "/",
@@ -60,6 +65,7 @@ const ROUTES_BY_ROLE: Record<Exclude<UserRole, "offline">, string[]> = {
     "/review",
     "/review/list",
     "/review/detail",
+    "/review/student",
   ],
   judge: [
     "/",
@@ -92,6 +98,24 @@ export function isTopLevelPath(role: UserRole, pathname: string) {
   return NAV_BY_ROLE[role].some((item) => item.href === normalized)
 }
 
+/**
+ * 当前应该高亮的菜单项 href，没有匹配时返回 null。
+ *
+ * 菜单项之间可能存在前缀关系（`/manage` 与 `/manage/judge`），
+ * 只认匹配得最长的那一项，否则父子两项会同时高亮。
+ */
+export function activeNavHref(role: UserRole, pathname: string) {
+  if (role === "offline") return null
+  const normalized = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname
+  // 登录后的落地页重定向到 /account，根路径按「我的账号」高亮
+  if (normalized === "/") return "/account"
+  return NAV_BY_ROLE[role].reduce<string | null>((best, item) => {
+    const matched = normalized === item.href || normalized.startsWith(`${item.href}/`)
+    if (!matched) return best
+    return best === null || item.href.length > best.length ? item.href : best
+  }, null)
+}
+
 export function canAccess(role: UserRole, pathname: string) {
   if (role === "offline") return false
   const normalized = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname
@@ -106,10 +130,12 @@ export function breadcrumbNameMap(role: UserRole): Record<string, string> {
     "/inbox": "收件箱",
     "/manage": "比赛管理",
     "/manage/create": "创建比赛",
+    "/manage/judge": "评委管理",
+    "/manage/student": "学生管理",
     "/account": "我的账号",
     "/review": reviewValue,
     "/review/list": "项目列表",
-    "/review/detail": role === "judge" ? "项目审核" : "项目评审",
+    "/review/detail": role === "approver" ? "比赛审批" : "比赛评审",
     "/activity/detail": "比赛详情",
     "/activity/register": "比赛报名",
     "/activity/register-detail": "报名参加详情",

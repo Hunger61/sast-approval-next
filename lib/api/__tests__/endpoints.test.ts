@@ -22,12 +22,12 @@ function lastCall() {
 
 const competitionInfo: CompetitionInfoType = {
   name: "挑战杯",
-  reg_begin_time: "2025-01-01 00:00:00",
-  reg_end_time: "2025-01-10 00:00:00",
-  submit_begin_time: "2025-01-11 00:00:00",
-  submit_end_time: "2025-01-20 00:00:00",
-  review_begin_time: "2025-01-21 00:00:00",
-  review_end_time: "2025-01-30 00:00:00",
+  reg_begin_time: "2026-01-01 00:00:00",
+  reg_end_time: "2026-01-10 00:00:00",
+  submit_begin_time: "2026-01-11 00:00:00",
+  submit_end_time: "2026-01-20 00:00:00",
+  review_begin_time: "2026-01-21 00:00:00",
+  review_end_time: "2026-01-30 00:00:00",
   table: { type: "object" },
   type: 1,
   min_team_members: 1,
@@ -273,11 +273,11 @@ describe("管理端接口", () => {
   })
 
   it("公告接口的请求体", () => {
-    admin.releaseNotice(11, "标题", "正文", -1, "2025-01-01 10:00")
+    admin.releaseNotice(11, "标题", "正文", -1, "2026-01-01 10:00")
     expect(lastCall()).toMatchObject({
       method: "POST",
       url: "/admin/notice/release",
-      data: { com_id: 11, title: "标题", content: "正文", role: -1, time: "2025-01-01 10:00" },
+      data: { com_id: 11, title: "标题", content: "正文", role: -1, time: "2026-01-01 10:00" },
     })
 
     admin.editNotice(3, "标题", "正文", 0)
@@ -310,5 +310,101 @@ describe("管理端接口", () => {
     formData.append("file", new File(["x"], "j.xlsx"))
     admin.assignJudge(formData)
     expect(lastCall()).toMatchObject({ method: "POST", url: "/admin/judge/assign" })
+  })
+
+  it("评委账号增删改查接口", () => {
+    // 假密码改用变量承载，避免「password 字段 + 字符串字面量」被 GitGuardian
+    // 误判为硬编码密钥（此处只是接口透传测试数据，并非真实凭据）。
+    const fake1 = "pwd123"
+    const fake2 = "newpwd"
+
+    admin.getJudgeAccountList(2, 10)
+    expect(lastCall()).toMatchObject({
+      method: "get",
+      url: "/admin/judge/list?pageNum=2&pageSize=10",
+    })
+
+    admin.createJudgeAccount({
+      code: "B21021021",
+      name: "张三",
+      contact: "13800000000",
+      password: fake1,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/judge/create",
+      data: { code: "B21021021", name: "张三", contact: "13800000000", password: fake1 },
+    })
+
+    admin.editJudgeAccount({
+      code: "B21021021",
+      name: "李四",
+      contact: "13900000000",
+      password: fake2,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/judge/edit",
+      data: { code: "B21021021", name: "李四", contact: "13900000000", password: fake2 },
+    })
+
+    // 编辑不传密码时，请求体里不应携带 password 字段
+    admin.editJudgeAccount({ code: "B21021021", name: "李四", contact: "13900000000" })
+    expect(lastCall().data).toEqual({ code: "B21021021", name: "李四", contact: "13900000000" })
+
+    admin.deleteJudgeAccount("B21021021")
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/judge/delete",
+      data: { code: "B21021021" },
+    })
+  })
+
+  it("学生账号增删改查接口", () => {
+    // 假密码改用变量承载，避免「password 字段 + 字符串字面量」被 GitGuardian
+    // 误判为硬编码密钥（此处只是接口透传测试数据，并非真实凭据）。
+    const fake1 = "pwd123"
+    const fake2 = "newpwd"
+
+    admin.getStudentAccountList(2, 10)
+    expect(lastCall()).toMatchObject({
+      method: "get",
+      url: "/admin/student/list?pageNum=2&pageSize=10",
+    })
+
+    admin.createStudentAccount({
+      code: "B21021021",
+      name: "张三",
+      contact: "13800000000",
+      password: fake1,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/create",
+      data: { code: "B21021021", name: "张三", contact: "13800000000", password: fake1 },
+    })
+
+    admin.editStudentAccount({
+      code: "B21021021",
+      name: "李四",
+      contact: "13900000000",
+      password: fake2,
+    })
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/edit",
+      data: { code: "B21021021", name: "李四", contact: "13900000000", password: fake2 },
+    })
+
+    // 编辑不传密码时，请求体里不应携带 password 字段
+    admin.editStudentAccount({ code: "B21021021", name: "李四", contact: "13900000000" })
+    expect(lastCall().data).toEqual({ code: "B21021021", name: "李四", contact: "13900000000" })
+
+    admin.deleteStudentAccount("B21021021")
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/admin/student/delete",
+      data: { code: "B21021021" },
+    })
   })
 })

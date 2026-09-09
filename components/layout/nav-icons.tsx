@@ -1,9 +1,11 @@
 import {
   ClipboardCheckIcon,
   FileUpIcon,
+  GraduationCapIcon,
   InboxIcon,
   SettingsIcon,
   TrophyIcon,
+  UserCogIcon,
   UserRoundIcon,
 } from "lucide-react"
 
@@ -15,4 +17,6 @@ export const NAV_ICONS: Record<string, React.ComponentType<{ className?: string 
   settings: SettingsIcon,
   clipboard: ClipboardCheckIcon,
   import: FileUpIcon,
+  users: UserCogIcon,
+  students: GraduationCapIcon,
 }
